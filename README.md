@@ -4,6 +4,8 @@ A powerful and flexible SQL query builder for Dart, focusing on MySQL support wi
 
 [![Pub Version](https://img.shields.io/pub/v/sqler)](https://pub.dev/packages/sqler)
 
+
+
 ## Features
 
 - **Fluent Interface**: Build SQL queries using method chaining for better readability
@@ -273,6 +275,30 @@ OrWhere([
   Condition(QField('table1.id'), QO.EQ, QField('table2.table1_id'))
 ])))
 ```
+
+## 🚀 Beta Release - Your Contribution Matters!
+
+**Sqler is currently in beta!** We're excited to share this powerful SQL query builder with the Dart community, and we'd love your help to make it even better.
+
+### How You Can Help
+
+This beta release means we're actively looking for feedback and contributions from developers like you! Here are some ways you can get involved:
+
+- 🐛 **Bug Reports**: Found something that doesn't work as expected? Please open an issue!
+- 📝 **Documentation**: Help us improve our documentation, examples, and guides
+- 💡 **Feature Requests**: Have ideas for new features? We'd love to hear them!
+- 🔧 **Code Contributions**: Submit pull requests to help improve the codebase
+- 🧪 **Testing**: Use Sqler in your projects and share your experience
+
+### Show Your Support
+
+Since we use **stars and ratings as our main metric** to gauge community interest and guide our development priorities, we'd really appreciate it if you could:
+
+- ⭐ **Star us on GitHub**: Help others discover Sqler!
+- 👍 **Like this package**: Your support motivates us to keep improving
+- 📢 **Share with others**: Tell your fellow developers about Sqler
+
+Your feedback and contributions are invaluable in helping us build the best SQL query builder for Dart. Thank you for being part of our journey! 🙏
 
 ## Contributing
 
