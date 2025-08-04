@@ -11,7 +11,7 @@ main() async {
     password: 'test',
     databaseName: 'test',
   );
-
+  await conn.connect();
   Future<MySqlResult> execute(String sql) async {
     try {
       var resultSet = await conn.execute(sql);
