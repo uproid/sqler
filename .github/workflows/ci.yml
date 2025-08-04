@@ -1,0 +1,50 @@
+name: Test Workflow
+
+# Trigger the workflow on push and pull requests
+on:
+  - push
+
+# Define jobs
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Checkout the repository code
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    # Set up Dart SDK
+    - name: Setup Dart SDK
+      uses: dart-lang/setup-dart@v1
+      with:
+        sdk: stable
+    
+    # Display Dart version
+    - name: Display Dart version
+      run: dart --version
+    
+    # Install dependencies
+    - name: Install dependencies
+      run: dart pub get
+    
+    # Verify dependencies
+    - name: Verify dependencies
+      run: dart pub deps
+    
+    # Run static analysis
+    - name: Analyze code
+      run: dart analyze --fatal-infos
+    
+    # Check code formatting
+    - name: Check formatting
+      run: dart format --output=none --set-exit-if-changed .
+    
+    # Run tests
+    - name: Run tests
+      run: dart test
+    
+    # Optional: Validate package for publishing
+    - name: Validate package
+      run: dart pub publish --dry-run
