@@ -66,6 +66,49 @@ main() async {
       expect(result.errorMsg, isEmpty);
       expect(result.assocFirst!['name'], 'Dart Programming');
     });
+
+    test('Select a book by ID', () async {
+      var query =
+          Sqler()
+            ..from(QField('books'))
+            ..selects([QSelectAll()])
+            ..where(WhereOne(QField('id'), QO.EQ, QVar(1)));
+      var result = await execute(query.toSQL());
+
+      expect(result.rows.isNotEmpty, isTrue);
+      expect(result.errorMsg, isEmpty);
+      expect(result.assocFirst!['name'], 'Dart Programming');
+    });
+
+    test('Insert Many', () async {
+      var query = Sqler().insert(QField('books'), [
+        {
+          'name': QVar('Flutter Development'),
+          'author': QVar('Jane Smith'),
+          'publication_year': QVar(2022),
+          'published_date': QVar(DateTime(2022, 5, 15)),
+          'content': QVar('A guide to Flutter development.'),
+        },
+        {
+          'name': QVar('Advanced Dart'),
+          'author': QVar('Alice Johnson'),
+          'publication_year': QVar(2021),
+          'published_date': QVar(DateTime(2021, 3, 10)),
+          'content': QVar('Deep dive into Dart programming.'),
+        },
+        {
+          'name': QVar('Web Development with Dart'),
+          'author': QVar('Bob Brown'),
+          'publication_year': QVar(2020),
+          'published_date': QVar(DateTime(2020, 7, 20)),
+          'content': QVar('Building web applications using Dart.'),
+        },
+      ]);
+      var result = await execute(query.toSQL());
+      expect(result.affectedRows, BigInt.from(3));
+      expect(result.insertId, greaterThan(BigInt.zero));
+      expect(result.errorMsg, isEmpty);
+    });
   });
 }
 
