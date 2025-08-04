@@ -54,9 +54,18 @@ main() async {
         },
       ]);
       var result = await execute(query.toSQL());
-      expect(result.affectedRows, 1);
-      expect(result.insertId, greaterThan(0));
+      expect(result.affectedRows, BigInt.from(1));
+      expect(result.insertId, greaterThan(BigInt.zero));
       expect(result.errorMsg, isEmpty);
+    });
+
+    test('Select all books', () async {
+      var query = Sqler().selects([QSelectAll()]);
+      var result = await execute(query.toSQL());
+
+      expect(result.rows.isNotEmpty, isTrue);
+      expect(result.errorMsg, isEmpty);
+      expect(result.assocFirst!['name'], 'Dart Programming');
     });
   });
 }
