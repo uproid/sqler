@@ -34,9 +34,19 @@ main() async {
 
   group('Test on Mysql connection', () {
     setUp(() async {
-      await execute(
-        'CREATE TABLE IF NOT EXISTS books (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), author VARCHAR(255), publication_year INT, published_date DATE, content TEXT)',
+      var books = MTable(
+        name: 'books',
+        fields: [
+          MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+          MFieldVarchar(name: 'name', length: 255),
+          MFieldVarchar(name: 'author', length: 255),
+          MFieldInt(name: 'publication_year'),
+          MFieldDate(name: 'published_date'),
+          MFieldText(name: 'content'),
+        ],
       );
+
+      await execute(books.toSQL());
     });
 
     test('Insert a book', () async {
