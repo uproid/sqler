@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 /// SQL Query Builder Library for MySQL
 ///
 /// This library provides a comprehensive set of classes for building SQL queries
@@ -41,8 +43,6 @@
 /// //           LEFT JOIN `profiles` ON ( ( `users`.`id` = `profiles`.`user_id` ) )
 /// //           WHERE ( `users`.`active` = true ) ORDER BY `users`.`name` ASC LIMIT 10
 /// ```
-
-import 'package:intl/intl.dart';
 
 /// A SQL query builder for MySQL that provides a fluent interface for constructing
 /// SQL statements including SELECT, INSERT, UPDATE, and DELETE operations.
