@@ -29,7 +29,7 @@ jobs:
     steps:
     - name: Init database
       run: |
-        mysql --protocol=tcp -h 127.0.0.1 --port 3306 -u root -pecd test -e "SET GLOBAL sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';"
+        mysql --protocol=tcp -h 127.0.0.1 --port 3306 -u test -ptest -e "SET GLOBAL sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';"
     # Checkout the repository code
     - name: Checkout repository
       uses: actions/checkout@v4
