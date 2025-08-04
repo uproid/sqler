@@ -56,7 +56,10 @@ main() async {
     });
 
     test('Select all books', () async {
-      var query = Sqler().selects([QSelectAll()]);
+      var query =
+          Sqler()
+            ..from(QField('books'))
+            ..selects([QSelectAll()]);
       var result = await execute(query.toSQL());
 
       expect(result.rows.isNotEmpty, isTrue);
