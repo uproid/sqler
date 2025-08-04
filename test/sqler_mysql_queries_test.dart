@@ -12,6 +12,7 @@ main() async {
     databaseName: 'test',
   );
   await conn.connect();
+
   Future<MySqlResult> execute(String sql) async {
     try {
       var resultSet = await conn.execute(sql);
@@ -36,11 +37,6 @@ main() async {
       await execute(
         'CREATE TABLE IF NOT EXISTS books (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), author VARCHAR(255), publication_year INT, published_date DATE, content TEXT)',
       );
-    });
-
-    tearDown(() async {
-      await execute('DROP TABLE IF EXISTS books');
-      await conn.close();
     });
 
     test('Insert a book', () async {
