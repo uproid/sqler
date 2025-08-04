@@ -38,17 +38,29 @@ dart pub get
 import 'package:sqler/sqler.dart';
 
 void main() {
+  // Create Table
+  var books = MTable(
+    name: 'books',
+    fields: [
+      MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+      MFieldVarchar(name: 'name', length: 255),
+      MFieldVarchar(name: 'author', length: 255),
+      MFieldInt(name: 'publication_year'),
+      MFieldDate(name: 'published_date'),
+      MFieldText(name: 'content'),
+    ],
+  );
+
   // Simple SELECT query
   var query = Sqler()
     .addSelect(QSelect('name'))
-    .addSelect(QSelect('email'))
-    .from(QField('users'))
-    .where(WhereOne(QField('active'), QO.EQ, QVar(true)))
+    .addSelect(QSelect('published_date'))
+    .from(QField('books'))
+    .where(WhereOne(QField('publication_year'), QO.EQ, QVar(1980)))
     .orderBy(QOrder('name'))
     .limit(10);
 
   print(query.toSQL());
-  // Output: SELECT `name`, `email` FROM `users` WHERE ( `active` = true ) ORDER BY `name` ASC LIMIT 10
 }
 ```
 

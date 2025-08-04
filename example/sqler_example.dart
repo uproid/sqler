@@ -4,6 +4,16 @@ import 'package:sqler/sqler.dart';
 ///
 /// This example covers:
 ///
+/// **Table Creation:**
+/// - CREATE TABLE statements using MTable class
+/// - All MySQL field types (INT, VARCHAR, TEXT, DECIMAL, ENUM, SET, JSON, etc.)
+/// - Primary keys and auto-increment fields
+/// - Foreign key constraints with various actions
+/// - Default values and field comments
+/// - Spatial data types (POINT, POLYGON)
+/// - Binary and BLOB field types
+/// - Table charset and collation settings
+///
 /// **Basic Operations:**
 /// - SELECT queries with various field types
 /// - INSERT operations (single and multiple records)
@@ -38,6 +48,7 @@ import 'package:sqler/sqler.dart';
 /// - Proper SQL escaping and formatting
 ///
 /// **Real-world Examples:**
+/// - Complete database schema creation
 /// - Sales reporting queries
 /// - Inventory management
 /// - User management systems
@@ -45,6 +56,213 @@ import 'package:sqler/sqler.dart';
 
 void main() {
   print('=== Sqler Package - Comprehensive Feature Demo ===\n');
+
+  // 0. CREATE TABLE Examples with MTable Class
+  print('0. CREATE TABLE Examples:');
+  print('');
+
+  // 0a. Simple table with basic field types
+  print('0a. Simple Users Table:');
+  var usersTable = MTable(
+    name: 'users',
+    fields: [
+      MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+      MFieldVarchar(name: 'username', length: 50),
+      MFieldVarchar(name: 'email', length: 255),
+      MFieldVarchar(name: 'password_hash', length: 255),
+      MFieldBoolean(name: 'is_active', defaultValue: 'TRUE'),
+      MFieldTimestamp(name: 'created_at', defaultValue: 'CURRENT_TIMESTAMP'),
+      MFieldTimestamp(name: 'updated_at', defaultValue: 'CURRENT_TIMESTAMP'),
+    ],
+  );
+  print(usersTable.toSQL());
+  print('');
+
+  // 0b. Complex table with various field types
+  print('0b. Products Table with Various Field Types:');
+  var productsTable = MTable(
+    name: 'products',
+    fields: [
+      MBigInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+      MFieldVarchar(name: 'name', length: 200),
+      MFieldText(name: 'description'),
+      MFieldVarchar(name: 'sku', length: 50, comment: 'Stock Keeping Unit'),
+      MFieldDecimal(name: 'price', m: 10, d: 2),
+      MFieldDecimal(name: 'cost', m: 10, d: 2),
+      MFieldFloat(name: 'weight', m: 8, d: 2),
+      MFieldInt(name: 'stock_quantity', defaultValue: '0'),
+      MFieldEnum(
+        name: 'status',
+        values: ['active', 'inactive', 'discontinued'],
+        defaultValue: 'active',
+      ),
+      MFieldSet(
+        name: 'tags',
+        values: ['new', 'featured', 'sale', 'bestseller', 'limited'],
+        isNullable: true,
+      ),
+      MFieldJson(name: 'metadata', isNullable: true),
+      MFieldDate(name: 'release_date', isNullable: true),
+      MFieldTimestamp(name: 'created_at', defaultValue: 'CURRENT_TIMESTAMP'),
+      MFieldTimestamp(name: 'updated_at', defaultValue: 'CURRENT_TIMESTAMP'),
+    ],
+    charset: 'utf8mb4',
+    collation: 'utf8mb4_unicode_ci',
+  );
+  print(productsTable.toSQL());
+  print('');
+
+  // 0c. Table with foreign keys
+  print('0c. Orders Table with Foreign Keys:');
+  var ordersTable = MTable(
+    name: 'orders',
+    fields: [
+      MBigInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+      MBigInt(name: 'user_id'),
+      MFieldVarchar(name: 'order_number', length: 50),
+      MFieldDecimal(name: 'subtotal', m: 10, d: 2),
+      MFieldDecimal(name: 'tax_amount', m: 10, d: 2),
+      MFieldDecimal(name: 'shipping_amount', m: 10, d: 2),
+      MFieldDecimal(name: 'total_amount', m: 10, d: 2),
+      MFieldEnum(
+        name: 'status',
+        values: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+        defaultValue: 'pending',
+      ),
+      MFieldText(name: 'shipping_address'),
+      MFieldText(name: 'billing_address'),
+      MFieldVarchar(name: 'payment_method', length: 50),
+      MFieldDateTime(name: 'order_date', defaultValue: 'CURRENT_TIMESTAMP'),
+      MFieldDateTime(name: 'shipped_date', isNullable: true),
+      MFieldDateTime(name: 'delivered_date', isNullable: true),
+      MFieldTimestamp(name: 'created_at', defaultValue: 'CURRENT_TIMESTAMP'),
+      MFieldTimestamp(name: 'updated_at', defaultValue: 'CURRENT_TIMESTAMP'),
+    ],
+    foreignKeys: [
+      ForeignKey(
+        name: 'user_id',
+        refTable: 'users',
+        refColumn: 'id',
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
+      ),
+    ],
+  );
+  print(ordersTable.toSQL());
+  print('');
+
+  // 0d. Table with all numeric types
+  print('0d. Analytics Table with All Numeric Types:');
+  var analyticsTable = MTable(
+    name: 'analytics_data',
+    fields: [
+      MBigInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+      MTinyInt(name: 'event_type', length: 3),
+      MSmallInt(name: 'category_id'),
+      MMediumInt(name: 'session_id'),
+      MFieldInt(name: 'user_id'),
+      MBigInt(name: 'timestamp_ms'),
+      MFieldFloat(name: 'duration', m: 8, d: 3),
+      MFieldDecimal(name: 'value', m: 15, d: 4),
+      MFieldBoolean(name: 'is_conversion', defaultValue: 'FALSE'),
+      MFieldVarchar(name: 'event_name', length: 100),
+      MFieldJson(name: 'properties', isNullable: true),
+      MFieldDate(name: 'event_date'),
+      MFieldTime(name: 'event_time'),
+      MFieldYear(name: 'year_partition', length: 4),
+    ],
+  );
+  print(analyticsTable.toSQL());
+  print('');
+
+  // 0e. Table with binary and blob types
+  print('0e. Media Files Table with Binary Types:');
+  var mediaTable = MTable(
+    name: 'media_files',
+    fields: [
+      MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+      MFieldVarchar(name: 'filename', length: 255),
+      MFieldVarchar(name: 'mime_type', length: 100),
+      MBigInt(name: 'file_size'),
+      MFieldBinary(name: 'file_hash', length: 32),
+      MFieldTinyBlob(name: 'thumbnail', isNullable: true),
+      MFieldBlob(name: 'small_preview', isNullable: true),
+      MFieldMediumBlob(name: 'medium_preview', isNullable: true),
+      MFieldLongBlob(name: 'original_file', isNullable: true),
+      MFieldVarBinary(name: 'metadata_binary', length: 1000, isNullable: true),
+      MFieldBit(name: 'flags', length: 8, defaultValue: '0'),
+      MFieldTimestamp(name: 'uploaded_at', defaultValue: 'CURRENT_TIMESTAMP'),
+    ],
+  );
+  print(mediaTable.toSQL());
+  print('');
+
+  // 0f. Table with text types and comments
+  print('0f. Blog Posts Table with Text Types:');
+  var blogTable = MTable(
+    name: 'blog_posts',
+    fields: [
+      MBigInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+      MFieldVarchar(name: 'title', length: 255, comment: 'Post title'),
+      MFieldVarchar(name: 'slug', length: 255, comment: 'URL-friendly version'),
+      MFieldTinyText(name: 'excerpt', comment: 'Short description'),
+      MFieldText(name: 'content', comment: 'Main post content'),
+      MFieldMediumText(name: 'content_markdown', isNullable: true),
+      MFieldLongText(name: 'content_html_cache', isNullable: true),
+      MBigInt(name: 'author_id'),
+      MFieldEnum(
+        name: 'status',
+        values: ['draft', 'published', 'archived'],
+        defaultValue: 'draft',
+      ),
+      MFieldSet(
+        name: 'categories',
+        values: ['tech', 'business', 'lifestyle', 'news', 'tutorial'],
+        isNullable: true,
+      ),
+      MFieldInt(name: 'view_count', defaultValue: '0'),
+      MFieldInt(name: 'like_count', defaultValue: '0'),
+      MFieldDateTime(name: 'published_at', isNullable: true),
+      MFieldTimestamp(name: 'created_at', defaultValue: 'CURRENT_TIMESTAMP'),
+      MFieldTimestamp(name: 'updated_at', defaultValue: 'CURRENT_TIMESTAMP'),
+    ],
+    foreignKeys: [
+      ForeignKey(
+        name: 'author_id',
+        refTable: 'users',
+        refColumn: 'id',
+        onDelete: 'SET NULL',
+        onUpdate: 'CASCADE',
+      ),
+    ],
+  );
+  print(blogTable.toSQL());
+  print('');
+
+  // 0g. Spatial data table
+  print('0g. Locations Table with Spatial Types:');
+  var locationsTable = MTable(
+    name: 'locations',
+    fields: [
+      MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+      MFieldVarchar(name: 'name', length: 255),
+      MFieldVarchar(name: 'address', length: 500),
+      MFieldPoint(name: 'coordinates', srid: 4326),
+      MFieldPolygon(name: 'service_area', isNullable: true, srid: 4326),
+      MFieldDecimal(name: 'latitude', m: 10, d: 8),
+      MFieldDecimal(name: 'longitude', m: 11, d: 8),
+      MFieldVarchar(name: 'city', length: 100),
+      MFieldVarchar(name: 'state', length: 50),
+      MFieldVarchar(name: 'country', length: 50),
+      MFieldVarchar(name: 'postal_code', length: 20),
+      MFieldBoolean(name: 'is_active', defaultValue: 'TRUE'),
+      MFieldTimestamp(name: 'created_at', defaultValue: 'CURRENT_TIMESTAMP'),
+    ],
+  );
+  print(locationsTable.toSQL());
+  print('');
+
+  print('=== End of CREATE TABLE Examples ===\n');
 
   // 1. Basic SELECT Query
   print('1. Basic SELECT Query:');
