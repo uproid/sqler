@@ -94,7 +94,7 @@ class MTable implements SQL {
     Map<String, List<String>> results = {};
 
     var exteraData = <String, Object?>{};
-    for (final field in this.fields) {
+    for (final field in fields) {
       var value = data[field.name];
       results[field.name] = await field.validate(value);
       exteraData[field.name] = data[field.name];
