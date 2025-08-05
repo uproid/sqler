@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:sqler/src/mysql_model.dart';
 import 'package:test/test.dart';
 
