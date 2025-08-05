@@ -1,7 +1,13 @@
 name: sqler
 description: Package for building SQL queries in Dart, focusing on MySQL support.
-version: 1.0.0
+version: 1.0.1
 repository: https://github.com/uproid/sqler
+
+topics:
+  - sql
+  - mysql
+  - sql-builder
+  - dart
 
 environment:
   sdk: ^3.7.2

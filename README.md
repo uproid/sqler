@@ -28,7 +28,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  sqler: ^1.0.0
+  sqler: ^1.0.1
 ```
 
 Then run:
