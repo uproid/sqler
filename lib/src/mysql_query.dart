@@ -1408,11 +1408,14 @@ class QField extends QVar<String> {
   /// Optional alias for the field
   String as;
 
+  /// Whether to select distinct values for this field
+  bool distinct = false;
+
   /// Creates a database field with optional alias.
   ///
   /// [field] The field name (can include table.field notation).
   /// [as] Optional alias for the field.
-  QField(String super.field, {this.as = ''});
+  QField(String super.field, {this.as = '', this.distinct = false});
 
   /// Generates the SQL representation with proper quoting and aliasing.
   ///
@@ -1430,18 +1433,19 @@ class QField extends QVar<String> {
   @override
   String toSQL() {
     var hasDot = value.contains('.');
+    var sql = distinct ? 'DISTINCT ' : '';
     if (hasDot) {
       var parts = value.split('.');
       if (as.isNotEmpty) {
-        return '${parts[0]}.`${parts[1]}` AS `$as`';
+        return '$sql${parts[0]}.`${parts[1]}` AS `$as`';
       }
-      return '${parts[0]}.`${parts[1]}`';
+      return '$sql${parts[0]}.`${parts[1]}`';
     }
 
     if (as.isNotEmpty) {
-      return '`$value` AS `$as`';
+      return '$sql`$value` AS `$as`';
     }
-    return '`$value`';
+    return '$sql`$value`';
   }
 
   /// Convenience method to create a field representing an 'id' column.
@@ -1659,12 +1663,50 @@ abstract interface class SQL {
   /// var count2 = SQL.count(QField('id', as: 'total')); // COUNT(`id`) AS `total`
   /// ```
   static QSelectField count(QField alias) {
-    if (alias.as.isNotEmpty) {
-      return QMath(
-        'COUNT(${QField(alias.value).toSQL()}) AS ${QField(alias.as).toSQL()}',
-      );
-    }
-    return QMath('COUNT(${QField(alias.value).toSQL()})');
+    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL()}' : '';
+
+    String field = QField(alias.value, distinct: alias.distinct).toSQL();
+    return QMath('COUNT($field)$as');
+  }
+
+  /// Creates a SUM aggregate function with optional alias.
+  /// [alias] A QField that specifies the field to sum and optional alias.
+  /// Returns a QSelectField representing the SUM function.
+  static QSelectField max(QField alias) {
+    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL()}' : '';
+
+    String field = QField(alias.value, distinct: alias.distinct).toSQL();
+    return QMath('MAX($field)$as');
+  }
+
+  /// Creates a MIN aggregate function with optional alias.
+  /// [alias] A QField that specifies the field to min and optional alias.
+  /// Returns a QSelectField representing the MIN function.
+  static QSelectField min(QField alias) {
+    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL()}' : '';
+
+    String field = QField(alias.value, distinct: alias.distinct).toSQL();
+    return QMath('MIN($field)$as');
+  }
+
+  /// Creates a SUM aggregate function with optional alias.
+  /// [alias] A QField that specifies the field to sum and optional alias.
+  /// Returns a QSelectField representing the SUM function.
+  static QSelectField sum(QField alias) {
+    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL()}' : '';
+
+    String field = QField(alias.value, distinct: alias.distinct).toSQL();
+    return QMath('SUM($field)$as');
+  }
+
+  /// Creates an AVG aggregate function with optional alias.
+  /// [alias] A QField that specifies the field to average and optional alias.
+  /// Returns a QSelectField representing the AVG function.
+  static QSelectField avg(QField alias) {
+    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL()}' : '';
+
+    String field = QField(alias.value, distinct: alias.distinct).toSQL();
+    return QMath('AVG($field)$as');
   }
 
   /// Creates a custom SQL expression as a selectable field.

@@ -32,23 +32,22 @@ main() async {
     }
   }
 
+  await conn.execute('DROP TABLE IF EXISTS books');
+  var books = MTable(
+    name: 'books',
+    fields: [
+      MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+      MFieldVarchar(name: 'name', length: 255),
+      MFieldVarchar(name: 'author', length: 255),
+      MFieldInt(name: 'publication_year'),
+      MFieldDate(name: 'published_date'),
+      MFieldText(name: 'content'),
+    ],
+  );
+
+  await execute(books.toSQL());
+
   group('Test on Mysql connection', () {
-    setUp(() async {
-      var books = MTable(
-        name: 'books',
-        fields: [
-          MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
-          MFieldVarchar(name: 'name', length: 255),
-          MFieldVarchar(name: 'author', length: 255),
-          MFieldInt(name: 'publication_year'),
-          MFieldDate(name: 'published_date'),
-          MFieldText(name: 'content'),
-        ],
-      );
-
-      await execute(books.toSQL());
-    });
-
     test('Insert a book', () async {
       var query = Sqler().insert(QField('books'), [
         {
@@ -102,7 +101,7 @@ main() async {
         {
           'name': QVar('Advanced Dart'),
           'author': QVar('Alice Johnson'),
-          'publication_year': QVar(2021),
+          'publication_year': QVar(2022),
           'published_date': QVar(DateTime(2021, 3, 10)),
           'content': QVar('Deep dive into Dart programming.'),
         },
@@ -118,6 +117,32 @@ main() async {
       expect(result.affectedRows, BigInt.from(3));
       expect(result.insertId, greaterThan(BigInt.zero));
       expect(result.errorMsg, isEmpty);
+    });
+
+    test('Test Aggregation Functions', () async {
+      var query =
+          Sqler()
+            ..from(QField('books'))
+            ..selects([
+              SQL.sum(QField('publication_year', as: 'sum_publication_year')),
+              SQL.avg(QField('publication_year', as: 'avg_publication_year')),
+              SQL.count(
+                QField('publication_year', as: 'count_books', distinct: true),
+              ),
+              SQL.min(QField('publication_year', as: 'min_publication_year')),
+              SQL.max(QField('publication_year', as: 'max_publication_year')),
+            ]);
+
+      var result = await execute(query.toSQL());
+      expect(result.rows.isNotEmpty, isTrue);
+      expect(result.errorMsg, isEmpty);
+      expect(result.assocFirst!['sum_publication_year'], isNotNull);
+      expect(result.assocFirst!['avg_publication_year'], isNotNull);
+      expect(result.assocFirst!['sum_publication_year'], '8087');
+      expect(result.assocFirst!['avg_publication_year'], '2021.7500');
+      expect(result.assocFirst!['count_books'], '3');
+      expect(result.assocFirst!['min_publication_year'], '2020');
+      expect(result.assocFirst!['max_publication_year'], '2023');
     });
   });
 }
