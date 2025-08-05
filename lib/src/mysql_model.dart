@@ -83,7 +83,28 @@ class MTable implements SQL {
     sql += ') ENGINE=$engine DEFAULT CHARSET=$charset COLLATE=$collation;';
     return sql;
   }
+
+  /// Validates the provided data against the table's fields.
+  /// Returns a map of field names to lists of validation error messages.
+  /// @data are input data to validate against the table's fields.
+  /// @returns a map of field names to lists of validation error messages.
+  Future<Map<String, List<String>>> formValidate(
+    Map<String, Object?> data,
+  ) async {
+    Map<String, List<String>> results = {};
+
+    var exteraData = <String, Object?>{};
+    for (final field in fields) {
+      var value = data[field.name];
+      results[field.name] = await field.validate(value);
+      exteraData[field.name] = data[field.name];
+    }
+
+    return results;
+  }
 }
+
+typedef ValidatorEvent<T> = Future<String> Function(T value);
 
 /// Abstract base class for all MySQL field types.
 ///
@@ -117,6 +138,8 @@ abstract class MField implements SQL {
   /// Additional options for the field (e.g., length, precision)
   String _options = '';
 
+  List<ValidatorEvent> validators;
+
   /// Creates a new MySQL field definition.
   ///
   /// [name] is the field name (required)
@@ -134,7 +157,25 @@ abstract class MField implements SQL {
     this.isNullable = false,
     this.defaultValue = '',
     this.comment,
+    this.validators = const [],
   });
+
+  /// Validates the provided value against the field's constraints.
+  /// Returns a list of validation error messages.
+  /// @param value is the value to validate
+  /// @returns a list of validation error messages, empty if valid
+  Future<List<String>> validate(dynamic value) async {
+    var results = <String>[];
+
+    for (var validator in validators) {
+      var result = await validator(value);
+      if (result.isNotEmpty) {
+        results.add(result);
+      }
+    }
+
+    return results;
+  }
 
   /// Generates the SQL field definition for this field.
   ///
@@ -187,6 +228,7 @@ class MFieldInt extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.INT);
 }
 
@@ -202,6 +244,7 @@ class MBigInt extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.BIGINT);
 }
 
@@ -217,6 +260,7 @@ class MMediumInt extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.MEDIUMINT);
 }
 
@@ -232,6 +276,7 @@ class MSmallInt extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.SMALLINT);
 }
 
@@ -253,6 +298,7 @@ class MTinyInt extends MField {
     super.defaultValue = '',
     super.comment,
     int? length,
+    super.validators = const [],
   }) : super(type: FieldTypes.TINYINT) {
     _options = length != null ? '(${length.toString()})' : '';
   }
@@ -275,6 +321,7 @@ class MFieldChar extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     int length = 255,
   }) : super(type: FieldTypes.CHAR) {
     _options = '(${length.toString()})';
@@ -298,6 +345,7 @@ class MFieldVarchar extends MFieldChar {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     int length = 255,
   }) {
     super.type = FieldTypes.VARCHAR;
@@ -321,6 +369,7 @@ class MFieldFloat extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     required int m,
     int? d,
   }) : super(type: FieldTypes.FLOAT) {
@@ -344,6 +393,7 @@ class MFieldDecimal extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     int m = 10,
     int d = 2,
   }) : super(type: FieldTypes.DECIMAL) {
@@ -363,6 +413,7 @@ class MFieldBoolean extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.BOOLEAN);
 }
 
@@ -378,6 +429,7 @@ class MFieldText extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.TEXT);
 }
 
@@ -393,6 +445,7 @@ class MFieldTinyText extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.TINYTEXT);
 }
 
@@ -408,6 +461,7 @@ class MFieldMediumText extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.MEDIUMTEXT);
 }
 
@@ -423,6 +477,7 @@ class MFieldLongText extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.LONGTEXT);
 }
 
@@ -438,6 +493,7 @@ class MFieldDate extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.DATE);
 }
 
@@ -453,6 +509,7 @@ class MFieldDateTime extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.DATETIME);
 }
 
@@ -469,6 +526,7 @@ class MFieldTimestamp extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.TIMESTAMP);
 }
 
@@ -487,6 +545,7 @@ class MFieldBit extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     int length = 8,
   }) : super(type: FieldTypes.BIT) {
     _options = '($length)';
@@ -505,6 +564,7 @@ class MFieldTime extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.TIME);
 }
 
@@ -523,6 +583,7 @@ class MFieldYear extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     int length = 4,
   }) : super(type: FieldTypes.YEAR) {
     _options = '($length)';
@@ -544,6 +605,7 @@ class MFieldBinary extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     int length = 255,
   }) : super(type: FieldTypes.BINARY) {
     _options = '($length)';
@@ -565,6 +627,7 @@ class MFieldVarBinary extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     int length = 255,
   }) : super(type: FieldTypes.VARBINARY) {
     _options = '($length)';
@@ -583,6 +646,7 @@ class MFieldBlob extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.BLOB);
 }
 
@@ -598,6 +662,7 @@ class MFieldMediumBlob extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.MEDIUMBLOB);
 }
 
@@ -613,6 +678,7 @@ class MFieldLongBlob extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.LONGBLOB);
 }
 
@@ -628,6 +694,7 @@ class MFieldTinyBlob extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.TINYBLOB);
 }
 
@@ -646,6 +713,7 @@ class MFieldEnum extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     required List<String> values,
   }) : super(type: FieldTypes.ENUM) {
     _options = '(${values.map((v) => "'$v'").join(', ')})';
@@ -667,6 +735,7 @@ class MFieldSet extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     required List<String> values,
   }) : super(type: FieldTypes.SET) {
     _options = '(${values.map((v) => "'$v'").join(', ')})';
@@ -685,6 +754,7 @@ class MFieldJson extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
   }) : super(type: FieldTypes.JSON);
 }
 
@@ -703,6 +773,7 @@ class MFieldPoint extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     int? srid,
   }) : super(type: FieldTypes.POINT) {
     if (srid != null) {
@@ -726,6 +797,7 @@ class MFieldPolygon extends MField {
     super.isNullable = false,
     super.defaultValue = '',
     super.comment,
+    super.validators = const [],
     int? srid,
   }) : super(type: FieldTypes.POLYGON) {
     if (srid != null) {
