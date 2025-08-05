@@ -3,6 +3,12 @@
 A powerful and flexible SQL query builder for Dart, focusing on MySQL support with a fluent interface design.
 
 [![Pub Version](https://img.shields.io/pub/v/sqler)](https://pub.dev/packages/sqler)
+[![pub package](https://img.shields.io/pub/v/sqler.svg)](https://pub.dev/packages/sqler)
+[![Dev](https://img.shields.io/pub/v/sqler.svg?label=dev&include_prereleases)](https://pub.dev/packages/sqler)
+[![Donate](https://img.shields.io/badge/Donate-Support.svg)](https://buymeacoffee.com/fardziao)
+[![issues-closed](https://img.shields.io/github/issues-closed/uproid/sqler?color=green)](https://github.com/uproid/sqler/issues?q=is%3Aissue+is%3Aclosed) 
+[![issues-open](https://img.shields.io/github/issues-raw/uproid/sqler)](https://github.com/uproid/sqler/issues) 
+[![Contributions](https://img.shields.io/github/contributors/uproid/sqler)](https://github.com/uproid/sqler/blob/master/CONTRIBUTING.md)
 
 
 
