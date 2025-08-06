@@ -42,6 +42,7 @@ main() async {
       MFieldInt(name: 'publication_year'),
       MFieldDate(name: 'published_date'),
       MFieldText(name: 'content'),
+      MFieldText(name: 'password', isNullable: false),
     ],
   );
 
@@ -56,6 +57,7 @@ main() async {
           'publication_year': QVar(2023),
           'published_date': QVar(DateTime(2023, 1, 1)),
           'content': QVar('An introduction to Dart programming language.'),
+          'password': QVar.password('test'),
         },
       ]);
       var result = await execute(query.toSQL());
@@ -74,6 +76,10 @@ main() async {
       expect(result.rows.isNotEmpty, isTrue);
       expect(result.errorMsg, isEmpty);
       expect(result.assocFirst!['name'], 'Dart Programming');
+      expect(
+        result.assocFirst!['password'],
+        '098f6bcd4621d373cade4e832627b4f6',
+      );
     });
 
     test('Select a book by ID', () async {
@@ -97,6 +103,7 @@ main() async {
           'publication_year': QVar(2022),
           'published_date': QVar(DateTime(2022, 5, 15)),
           'content': QVar('A guide to Flutter development.'),
+          'password': QVar.password('flutter123', type: HashType.sha256),
         },
         {
           'name': QVar('Advanced Dart'),
@@ -104,6 +111,7 @@ main() async {
           'publication_year': QVar(2022),
           'published_date': QVar(DateTime(2021, 3, 10)),
           'content': QVar('Deep dive into Dart programming.'),
+          'password': QVar.password('advanceddart', type: HashType.sha256),
         },
         {
           'name': QVar('Web Development with Dart'),
@@ -111,6 +119,7 @@ main() async {
           'publication_year': QVar(2020),
           'published_date': QVar(DateTime(2020, 7, 20)),
           'content': QVar('Building web applications using Dart.'),
+          'password': QVar.password('webdart', type: HashType.sha256),
         },
       ]);
       var result = await execute(query.toSQL());
