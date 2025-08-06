@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:intl/intl.dart';
 
 /// SQL Query Builder Library for MySQL
@@ -1339,7 +1342,46 @@ class QVar<T> implements SQL {
   /// var todayVar = QVar.dateNow(); // Today's date
   /// ```
   static QVar dateNow() => date(DateTime.now());
+
+  /// Creates a QVar containing a password hash using the specified hashing algorithm.
+  /// MD5, SHA-1, SHA-256, SHA-512, and HMAC (SHA-256) are supported.
+  /// [password] The password string to hash.
+  /// [type] The hashing algorithm to use (default is HashType.md5).
+  /// [hmacKey] The key for HMAC hashing (default is 'unknown_default_key').
+  static QVar password(
+    String password, {
+    HashType type = HashType.md5,
+    String hmacKey = 'unknown_default_key',
+  }) {
+    var hash = '';
+
+    switch (type) {
+      case HashType.md5:
+        hash = md5.convert(utf8.encode(password)).toString();
+        break;
+      case HashType.sha1:
+        hash = sha1.convert(utf8.encode(password)).toString();
+        break;
+      case HashType.sha256:
+        hash = sha256.convert(utf8.encode(password)).toString();
+        break;
+      case HashType.sha512:
+        hash = sha512.convert(utf8.encode(password)).toString();
+        break;
+      case HashType.HMAC:
+        var key = utf8.encode(hmacKey);
+        var hmacSha256 = Hmac(sha256, key);
+        hash = hmacSha256.convert(utf8.encode(password)).toString();
+        break;
+    }
+
+    return QVar(hash);
+  }
 }
+
+/// Enum representing different hash types for password hashing.
+/// This enum is used to specify the hashing algorithm when creating
+enum HashType { md5, sha1, sha256, sha512, HMAC }
 
 /// Represents a LIKE pattern value with configurable wildcard placement.
 ///
