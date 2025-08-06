@@ -153,6 +153,22 @@ main() async {
       expect(result.assocFirst!['min_publication_year'], '2020');
       expect(result.assocFirst!['max_publication_year'], '2023');
     });
+
+    test('Test EXPLAIN', () async {
+      var bookQuery =
+          Sqler()
+            ..from(QField('books'))
+            ..selects([QSelectAll()])
+            ..where(WhereOne(QField('id'), QO.EQ, QVar(1)));
+      var explainQuery = SqlExplain(bookQuery);
+      var result = await execute(explainQuery.toSQL());
+
+      expect(result.assoc, isList);
+      expect(result.assocFirst!['id'], '1');
+      expect(result.assocFirst!['select_type'], 'SIMPLE');
+      expect(result.rows.isNotEmpty, isTrue);
+      expect(result.errorMsg, isEmpty);
+    });
   });
 }
 

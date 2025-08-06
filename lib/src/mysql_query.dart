@@ -2018,3 +2018,17 @@ class Union extends SQL {
     return sql;
   }
 }
+
+/// Represents an EXPLAIN statement for a SQL query.
+/// This class wraps a Sqler query and generates the EXPLAIN SQL statement
+/// to analyze the query execution plan.
+class SqlExplain implements SQL {
+  final Sqler query;
+
+  SqlExplain(this.query);
+
+  @override
+  String toSQL() {
+    return 'EXPLAIN ${query.toSQL()}';
+  }
+}
