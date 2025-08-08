@@ -9,6 +9,11 @@ topics:
   - sql-builder
   - dart
 
+funding:
+  - https://github.com/sponsors/uproid
+issue_tracker: https://github.com/uproid/sqler/issues
+homepage: https://github.com/uproid/sqler
+
 environment:
   sdk: ^3.7.2
 
