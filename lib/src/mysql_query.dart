@@ -1503,6 +1503,16 @@ class QField extends QVar<String> {
   }
 }
 
+/// Represents a wildcard field that selects all columns from a table.
+class QFieldAll extends QField {
+  QFieldAll() : super('*');
+
+  @override
+  String toSQL() {
+    return '*';
+  }
+}
+
 /// Represents a subquery used as a table source in the FROM clause.
 ///
 /// This class allows using a complete query as a table source, with
