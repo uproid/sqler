@@ -4,6 +4,7 @@ import 'package:sqler/sqler.dart';
 import 'package:test/test.dart';
 
 main() async {
+  // Test framework: package:test (Dart test) is used throughout this file.
   var conn = await MySQLConnection.createConnection(
     host: 'localhost',
     port: 3306,
@@ -223,6 +224,57 @@ main() async {
       expect(result.assoc.length, 4);
       expect(result.assocFirst!['b_name'], 'Dart Programming');
       expect(result.assocFirst!['b_category_id'], isNull);
+    });
+
+    // Additional tests appended by CodeRabbit Inc. - Using package:test (Dart test)
+    test("MySqlResult.countRecords returns count from alias", () async {
+      var countQuery = Sqler()
+        ..from(QField("books"))
+        ..selects([SQL.count(QField("id", as: "count_records"))]);
+      var result = await execute(countQuery.toSQL());
+      expect(result.success, isTrue);
+      expect(result.countRecords, greaterThan(0));
+    });
+
+    test("assoc and assocFirst with empty result set", () async {
+      var query = Sqler()
+        ..from(QField("books"))
+        ..selects([QSelectAll()])
+        ..where(WhereOne(QField("id"), QO.EQ, QVar(-1)));
+      var result = await execute(query.toSQL());
+      expect(result.rows.isEmpty, isTrue);
+      expect(result.assoc, isEmpty);
+      expect(result.assocFirst, isNull);
+      expect(result.countRecords, 0);
+    });
+
+    test("Insert fails when required field is missing", () async {
+      var insertMissing = Sqler().insert(QField("books"), [{
+        "name": QVar("NoPass Book"),
+        "author": QVar("No One"),
+        "publication_year": QVar(2024),
+        "published_date": QVar(DateTime(2024, 1, 1)),
+        "content": QVar("Missing password should error"),
+      }]);
+      var result = await execute(insertMissing.toSQL());
+      expect(result.error, isTrue);
+      expect(result.errorMsg, isNotEmpty);
+    });
+
+    test("Invalid SQL is captured by execute() wrapper", () async {
+      var result = await execute("SELEC * FROM does_not_exist");
+      expect(result.error, isTrue);
+      expect(result.errorMsg, isNotEmpty);
+    });
+
+    test("numFields reflects selected columns for SELECT *", () async {
+      var sel = Sqler()
+        ..from(QField("books"))
+        ..selects([QSelectAll()]);
+      var result = await execute(sel.toSQL());
+      expect(result.numFields, 8);
+      expect(result.numRows, greaterThan(0));
+      expect(result.assoc.length, result.numRows);
     });
   });
 }
