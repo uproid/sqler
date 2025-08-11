@@ -224,6 +224,31 @@ main() async {
       expect(result.assocFirst!['b_name'], 'Dart Programming');
       expect(result.assocFirst!['b_category_id'], isNull);
     });
+
+    test('Test ConditionString', () async {
+      var query =
+          Sqler()
+            ..selects([QSelectAll()])
+            ..from(QField('books'))
+            ..where(
+              AndWhere([
+                ConditionString("name = {name}"),
+                ConditionString("author = {author}"),
+                ConditionString("publication_year = {publication_year}"),
+                ConditionString("category_id IS {category_id}"),
+              ]),
+            ).addParams({
+              'name': QVar('Dart Programming'),
+              'author': QVar('John Doe'),
+              'publication_year': QVar(2023),
+              'category_id': QVar(null),
+            });
+      print(query.toSQL());
+
+      var result = await execute(query.toSQL());
+      expect(result.rows.isNotEmpty, isTrue);
+      expect(result.errorMsg, isEmpty);
+    });
   });
 }
 

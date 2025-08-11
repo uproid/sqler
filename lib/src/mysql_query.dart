@@ -1699,6 +1699,17 @@ class Condition implements SQL {
   }
 }
 
+class ConditionString extends Condition {
+  final String value;
+
+  ConditionString(this.value) : super(QField(''), QO.EQ, QVar(''));
+
+  @override
+  String toSQL() {
+    return value;
+  }
+}
+
 /// Base interface for all SQL-generating classes.
 ///
 /// The [SQL] interface defines the contract that all SQL query components
