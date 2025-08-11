@@ -987,6 +987,27 @@ class QSelectCustom implements QSelectField {
   }
 }
 
+class QSelectString implements QSelectField {
+  /// The string value to select
+  String value;
+
+  /// Creates a SELECT field for a string value.
+  ///
+  /// [value] The string value to select.
+  QSelectString(this.value);
+
+  /// Returns the string value wrapped in quotes.
+  ///
+  /// Example:
+  /// ```dart
+  /// QSelectString('Hello, World!').toSQL(); // "'Hello, World!'"
+  /// ```
+  @override
+  String toSQL() {
+    return value;
+  }
+}
+
 /// Represents a mathematical expression or function in a SELECT clause.
 ///
 /// This class allows embedding raw SQL mathematical expressions, aggregate functions,
@@ -1970,39 +1991,43 @@ class Limit implements SQL {
 
 class Join implements SQL {
   String table;
+  String as;
   On on;
-  Join(this.table, this.on);
+  Join(this.table, this.on, {this.as = ''});
 
   @override
   String toSQL() {
+    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).toSQL()}' : '';
     if (on._onBodies.isNotEmpty) {
-      return 'JOIN ${QField(table).toSQL()} ON ${on.toSQL()}';
+      return 'JOIN ${QField(table).toSQL()}$sqlAs ON ${on.toSQL()}';
     }
-    return 'JOIN ${QField(table).toSQL()}';
+    return 'JOIN ${QField(table).toSQL()}$sqlAs';
   }
 }
 
 class LeftJoin extends Join {
-  LeftJoin(super.table, super.on);
+  LeftJoin(super.table, super.on, {super.as = ''});
 
   @override
   String toSQL() {
+    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).toSQL()}' : '';
     if (on._onBodies.isNotEmpty) {
-      return 'LEFT JOIN ${QField(table).toSQL()} ON ${on.toSQL()}';
+      return 'LEFT JOIN ${QField(table).toSQL()}$sqlAs ON ${on.toSQL()}';
     }
-    return 'LEFT JOIN ${QField(table).toSQL()}';
+    return 'LEFT JOIN ${QField(table).toSQL()}$sqlAs';
   }
 }
 
 class RightJoin extends Join {
-  RightJoin(super.table, super.on);
+  RightJoin(super.table, super.on, {super.as = ''});
 
   @override
   String toSQL() {
+    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).toSQL()}' : '';
     if (on._onBodies.isNotEmpty) {
-      return 'RIGHT JOIN ${QField(table).toSQL()} ON ${on.toSQL()}';
+      return 'RIGHT JOIN ${QField(table).toSQL()}$sqlAs ON ${on.toSQL()}';
     }
-    return 'RIGHT JOIN ${QField(table).toSQL()}';
+    return 'RIGHT JOIN ${QField(table).toSQL()}$sqlAs';
   }
 }
 

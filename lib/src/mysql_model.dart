@@ -63,11 +63,11 @@ class MTable implements SQL {
   /// final fields = table.getFieldsAs('u', 'user');
   /// // Generates: u.id AS user.id, u.name AS user.name, etc.
   /// ```
-  List<QSelectField> getFieldsAs(String from, String as) {
+  List<QSelectField> getFieldsAs([String from = '', String newAlias = '']) {
     return fields.map((field) {
-      return QSelectCustom(
-        QMath(from.isEmpty ? field.name : "$from.${field.name}"),
-        as: as.isEmpty ? field.name : '$as.${field.name}',
+      return QSelect(
+        from.isEmpty ? field.name : '$from.${field.name}',
+        as: newAlias.isEmpty ? '' : '${newAlias}_${field.name}',
       );
     }).toList();
   }

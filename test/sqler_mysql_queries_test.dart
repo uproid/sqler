@@ -33,6 +33,7 @@ main() async {
   }
 
   await conn.execute('DROP TABLE IF EXISTS books');
+  await conn.execute('DROP TABLE IF EXISTS categories');
   var books = MTable(
     name: 'books',
     fields: [
@@ -43,6 +44,7 @@ main() async {
       MFieldDate(name: 'published_date'),
       MFieldText(name: 'content'),
       MFieldText(name: 'password', isNullable: false),
+      MFieldInt(name: 'category_id', isNullable: true, defaultValue: 'NULL'),
     ],
   );
 
@@ -168,6 +170,59 @@ main() async {
       expect(result.assocFirst!['select_type'], 'SIMPLE');
       expect(result.rows.isNotEmpty, isTrue);
       expect(result.errorMsg, isEmpty);
+    });
+
+    test('Test Join', () async {
+      var categoriesTable = MTable(
+        name: 'categories',
+        fields: [
+          MFieldInt(
+            name: 'id',
+            isNullable: false,
+            isAutoIncrement: true,
+            isPrimaryKey: true,
+          ),
+          MFieldText(name: 'title', isNullable: false),
+        ],
+      );
+
+      execute(categoriesTable.toSQL());
+
+      Sqler insertQuery = Sqler().insert(QField('categories'), [
+        {'title': QVar('Programming')},
+        {'title': QVar('Web Development')},
+        {'title': QVar('Mobile Development')},
+      ]);
+
+      execute(insertQuery.toSQL());
+
+      Sqler queryBooks =
+          Sqler()
+            ..from(QField('books'))
+            ..selects([
+              ...books.getFieldsAs('books', 'b'),
+              ...categoriesTable.getFieldsAs('cat', 'c'),
+            ])
+            ..join(
+              LeftJoin(
+                'categories',
+                On([
+                  Condition(
+                    QField('books.category_id'),
+                    QO.EQ,
+                    QField('cat.id'),
+                  ),
+                ]),
+                as: 'cat',
+              ),
+            );
+
+      var result = await execute(queryBooks.toSQL());
+      expect(result.rows.isNotEmpty, isTrue);
+      expect(result.errorMsg, isEmpty);
+      expect(result.assoc.length, 4);
+      expect(result.assocFirst!['b_name'], 'Dart Programming');
+      expect(result.assocFirst!['b_category_id'], isNull);
     });
   });
 }
