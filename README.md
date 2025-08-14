@@ -28,7 +28,12 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  sqler: ^1.1.0
+  sqler: 
+```
+Or
+
+```bash
+dart pub add sqler
 ```
 
 Then run:
