@@ -196,7 +196,7 @@ main() async {
 
       execute(insertQuery.toSQL());
 
-      Sqler queryBooks =
+      Sqler queryBooks1 =
           Sqler()
             ..from(QField('books'))
             ..selects([
@@ -217,12 +217,39 @@ main() async {
               ),
             );
 
-      var result = await execute(queryBooks.toSQL());
-      expect(result.rows.isNotEmpty, isTrue);
-      expect(result.errorMsg, isEmpty);
-      expect(result.assoc.length, 4);
-      expect(result.assocFirst!['b_name'], 'Dart Programming');
-      expect(result.assocFirst!['b_category_id'], isNull);
+      Sqler queryBooks2 =
+          Sqler()
+            ..from(QField('books'))
+            ..selects([
+              ...books.getFieldsAs('books', 'b'),
+              ...categoriesTable.getFieldsAs('cat', 'c'),
+            ])
+            ..join(
+              LeftJoin(
+                'categories',
+                On([
+                  Condition(
+                    QField('books.category_id'),
+                    QO.EQ,
+                    QField('cat.id'),
+                  ),
+                ]),
+                as: 'cat',
+              ),
+            );
+
+      var result1 = await execute(queryBooks1.toSQL());
+      var result2 = await execute(queryBooks2.toSQL());
+
+      expect(queryBooks1.toSQL(), queryBooks2.toSQL());
+      expect(result1.rows.isNotEmpty, isTrue);
+      expect(result1.errorMsg, isEmpty);
+      expect(result1.assoc.length, 4);
+      expect(result1.assocFirst!['b_name'], 'Dart Programming');
+      expect(result1.assocFirst!['b_category_id'], isNull);
+      expect(result1.assoc.length, result2.assoc.length);
+      expect(result1.assocLast, result2.assocLast);
+      expect(result1.assocFirst, result2.assocFirst);
     });
 
     test('Test ConditionString', () async {
@@ -243,7 +270,6 @@ main() async {
               'publication_year': QVar(2023),
               'category_id': QVar(null),
             });
-      print(query.toSQL());
 
       var result = await execute(query.toSQL());
       expect(result.rows.isNotEmpty, isTrue);
@@ -276,6 +302,13 @@ class MySqlResult {
       return null;
     }
     return rows.first.assoc();
+  }
+
+  Map<String, dynamic>? get assocLast {
+    if (rows.isEmpty) {
+      return null;
+    }
+    return rows.last.assoc();
   }
 
   /// This method returns the count of records from results
