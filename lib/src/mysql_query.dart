@@ -2004,7 +2004,12 @@ class Join implements SQL {
   String table;
   String as;
   On on;
-  Join(this.table, this.on, {this.as = ''});
+  Join(this.table, this.on, {this.as = ''}) {
+    if (as.isEmpty && table.contains(' ')) {
+      as = table.split(' ').last.trim();
+      table = table.split(' ').first.trim();
+    }
+  }
 
   @override
   String toSQL() {
