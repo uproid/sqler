@@ -1106,6 +1106,18 @@ abstract class Where implements SQL {
     }
   }
 
+  /// Adds a SQL condition to this WHERE clause.
+  Where add(SQL whereBody) {
+    _whereBodies.add(whereBody);
+    return this;
+  }
+
+  /// Clears all conditions from this WHERE clause.
+  Where clear() {
+    _whereBodies.clear();
+    return this;
+  }
+
   /// Generates SQL by combining all conditions with AND.
   ///
   /// Each condition is wrapped in parentheses and joined with " AND ".

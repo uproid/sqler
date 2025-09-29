@@ -1,3 +1,7 @@
+## 1.1.4
+- Added `add()`, clear() to `Where` class
+- Added `allSelectFields()` function to `MTable` to make a list of all columns for selecting
+
 ## 1.1.3
 
 - Fixed table name for JOIN's #23, #21

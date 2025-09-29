@@ -51,6 +51,23 @@ class MTable implements SQL {
     this.collation = 'utf8mb4_unicode_ci',
   });
 
+  /// Generates a list of [QSelect] objects for all fields in the table.
+  ///
+  /// [alias] is the source table/alias prefix for field names
+  /// [prefix] is the target alias prefix for the result fields
+  ///
+  /// Returns a list of [QSelect] objects that can be used in SELECT statements.
+  /// Example:
+  /// ```dart
+  /// final selects = table.allSelectFields(alias: 'u.', prefix: 'user_');
+  /// // Generates: u.id AS user_id, u.name AS user_name, etc.
+  /// ```
+  List<QSelect> allSelectFields({String alias = '', String prefix = ''}) {
+    return fields
+        .map((e) => QSelect('$alias${e.name}', as: '$prefix${e.name}'))
+        .toList();
+  }
+
   /// Generates a list of [QSelectField] objects for SELECT queries with aliases.
   ///
   /// [from] is the source table/alias prefix for field names
