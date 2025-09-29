@@ -48,6 +48,19 @@ main() async {
     ],
   );
 
+  var categoriesTable = MTable(
+    name: 'categories',
+    fields: [
+      MFieldInt(
+        name: 'id',
+        isNullable: false,
+        isAutoIncrement: true,
+        isPrimaryKey: true,
+      ),
+      MFieldText(name: 'title', isNullable: false),
+    ],
+  );
+
   await execute(books.toSQL());
 
   group('Test on Mysql connection', () {
@@ -173,22 +186,9 @@ main() async {
     });
 
     test('Test Join', () async {
-      var categoriesTable = MTable(
-        name: 'categories',
-        fields: [
-          MFieldInt(
-            name: 'id',
-            isNullable: false,
-            isAutoIncrement: true,
-            isPrimaryKey: true,
-          ),
-          MFieldText(name: 'title', isNullable: false),
-        ],
-      );
-
       execute(categoriesTable.toSQL());
 
-      Sqler insertQuery = Sqler().insert(QField('categories'), [
+      Sqler insertQuery = Sqler().insert(categoriesTable.qName, [
         {'title': QVar('Programming')},
         {'title': QVar('Web Development')},
         {'title': QVar('Mobile Development')},
@@ -270,6 +270,49 @@ main() async {
       var result = await execute(query.toSQL());
       expect(result.rows.isNotEmpty, isTrue);
       expect(result.errorMsg, isEmpty);
+    });
+
+    test('Test Nested Conditions & Joins', () async {
+      Sqler allBooksQuery =
+          Sqler()
+            ..selects([QSelect('id')])
+            ..from(QField('books'));
+
+      Sqler query = Sqler();
+      query.selects([
+          ...books.getFieldsAs('books', 'b'),
+          ...categoriesTable.getFieldsAs('cat', 'c'),
+          ...books.getFieldsAs('bv', 'v'),
+        ])
+        ..from(books.qName)
+        ..join(
+          categoriesTable.createLeftJoin(
+            On([
+              Condition(QField('books.category_id'), QO.EQ, QField('cat.id')),
+            ]),
+            as: 'cat',
+          ),
+        )
+        ..join(
+          books.createLeftJoin(
+            OnOne(QField('bv.id'), QO.GT, QVar(0)),
+            as: 'bv',
+          ),
+        )
+        ..whereAnd([
+          Condition(QField('books.publication_year'), QO.GTE, QVar(2023)),
+          Condition(QField('books.author'), QO.EQ, QVar('John Doe')),
+          Condition(QField('books.id'), QO.IN, QVar(allBooksQuery)),
+        ])
+        ..orderBy(QOrder('books.id', desc: true))
+        ..orderBy(QOrder('books.publication_year', desc: false))
+        ..limit(10);
+      var result = await execute(query.toSQL());
+      expect(result.rows.length, 4);
+      expect(
+        result.resultSet.cols.length,
+        books.fields.length * 2 + categoriesTable.fields.length,
+      );
     });
   });
 }

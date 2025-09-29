@@ -1,7 +1,10 @@
 ## 1.1.4
-- Added `add()`, clear() to `Where` class
-- Added `allSelectFields()` function to `MTable` to make a list of all columns for selecting
-- Added `whereAnd`, `whereOr` & `whereOne` for Sqler class
+
+- Added `add()` and `clear()` methods to the `Where` class.
+- Added `allSelectFields()` function to `MTable` to generate a list of all columns for selection.
+- Added `whereAnd`, `whereOr`, and `whereOne` methods to the `Sqler` class.
+- Added `OnOne` method to summarize `On` when there is only one.
+- Added `Sqler` as a new value for `QVar` to allow using the `Sqler` class as a value in conditions.
 
 ## 1.1.3
 

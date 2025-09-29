@@ -1309,7 +1309,9 @@ class QVar<T> implements SQL {
   /// - null: "NULL"
   /// - Others: toString() representation
   static String _to<R>(dynamic value) {
-    if (value is String) {
+    if (value is SQL) {
+      return '( ${value.toSQL()} )';
+    } else if (value is String) {
       value = QVar.escape(value);
       return "'$value'";
     } else if (value is DateTime) {
@@ -1691,6 +1693,23 @@ class On implements SQL {
       sql.add('( ${_onBodies[i].toSQL()} )');
     }
     return sql.join(' AND ');
+  }
+}
+
+/// Represents a simple ON condition with a single comparison.
+/// This is the most common type of ON clause, representing a single
+/// condition like "field1 = field2".
+/// Example usage:
+/// ```dart
+/// var on = OnOne(QField('users.id'), QO.EQ, QField('orders.user_id')); // ON ( users.id = orders.user_id )
+/// ```
+class OnOne extends On {
+  OnOne(SQL left, QO operator, SQL right)
+    : super([Condition(left, operator, right)]);
+
+  @override
+  String toSQL() {
+    return _onBodies.first.toSQL();
   }
 }
 
