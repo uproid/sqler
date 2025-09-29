@@ -566,6 +566,21 @@ class Sqler implements SQL {
     return this;
   }
 
+  /// Adds a simple WHERE condition comparing two SQL expressions.
+  Sqler whereOne(SQL left, QO operator, SQL right) {
+    return where(WhereOne(left, operator, right));
+  }
+
+  /// Adds multiple WHERE conditions combined with AND.
+  Sqler whereAnd(List<Condition> conditions) {
+    return where(AndWhere(conditions));
+  }
+
+  /// Adds multiple WHERE conditions combined with OR.
+  Sqler whereOr(List<Condition> conditions) {
+    return where(OrWhere(conditions));
+  }
+
   /// Checks if the query has any WHERE conditions.
   bool hasWhere() {
     return _where.isNotEmpty;

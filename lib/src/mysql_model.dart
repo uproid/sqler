@@ -21,6 +21,9 @@ class MTable implements SQL {
   /// The name of the table
   String name;
 
+  /// A [QField] representation of the table name for query building
+  QField get qName => QField(name);
+
   /// List of fields/columns in the table
   List<MField> fields;
 
@@ -66,6 +69,36 @@ class MTable implements SQL {
     return fields
         .map((e) => QSelect('$alias${e.name}', as: '$prefix${e.name}'))
         .toList();
+  }
+
+  /// Creates a [LeftJoin] object for this table with the specified join condition.
+  ///
+  /// [on] is the join condition
+  /// [as] is an optional alias for the joined table
+  ///
+  /// Returns a [LeftJoin] object that can be used in SQL queries.
+  LeftJoin createLeftJoin(On on, {String as = ''}) {
+    return LeftJoin(name, on, as: as);
+  }
+
+  /// Creates a [Join] object for this table with the specified join condition.
+  ///
+  /// [on] is the join condition
+  /// [as] is an optional alias for the joined table
+  ///
+  /// Returns a [Join] object that can be used in SQL queries.
+  Join createJoin(On on, {String as = ''}) {
+    return Join(name, on, as: as);
+  }
+
+  /// Creates a [RightJoin] object for this table with the specified join condition.
+  ///
+  /// [on] is the join condition
+  /// [as] is an optional alias for the joined table
+  ///
+  /// Returns a [RightJoin] object that can be used in SQL queries.
+  RightJoin createRightJoin(On on, {String as = ''}) {
+    return RightJoin(name, on, as: as);
   }
 
   /// Generates a list of [QSelectField] objects for SELECT queries with aliases.

@@ -71,7 +71,7 @@ main() async {
     test('Select all books', () async {
       var query =
           Sqler()
-            ..from(QField('books'))
+            ..from(books.qName)
             ..selects([QSelectAll()]);
       var result = await execute(query.toSQL());
 
@@ -87,9 +87,9 @@ main() async {
     test('Select a book by ID', () async {
       var query =
           Sqler()
-            ..from(QField('books'))
+            ..from(books.qName)
             ..selects([QSelectAll()])
-            ..where(WhereOne(QField('id'), QO.EQ, QVar(1)));
+            ..whereOne(QField('id'), QO.EQ, QVar(1));
       var result = await execute(query.toSQL());
 
       expect(result.rows.isNotEmpty, isTrue);
@@ -133,7 +133,7 @@ main() async {
     test('Test Aggregation Functions', () async {
       var query =
           Sqler()
-            ..from(QField('books'))
+            ..from(books.qName)
             ..selects([
               SQL.sum(QField('publication_year', as: 'sum_publication_year')),
               SQL.avg(QField('publication_year', as: 'avg_publication_year')),
@@ -159,9 +159,9 @@ main() async {
     test('Test EXPLAIN', () async {
       var bookQuery =
           Sqler()
-            ..from(QField('books'))
+            ..from(books.qName)
             ..selects([QSelectAll()])
-            ..where(WhereOne(QField('id'), QO.EQ, QVar(1)));
+            ..whereOne(QField('id'), QO.EQ, QVar(1));
       var explainQuery = SqlExplain(bookQuery);
       var result = await execute(explainQuery.toSQL());
 
@@ -198,14 +198,13 @@ main() async {
 
       Sqler queryBooks1 =
           Sqler()
-            ..from(QField('books'))
+            ..from(books.qName)
             ..selects([
               ...books.getFieldsAs('books', 'b'),
               ...categoriesTable.getFieldsAs('cat', 'c'),
             ])
             ..join(
-              LeftJoin(
-                'categories',
+              categoriesTable.createLeftJoin(
                 On([
                   Condition(
                     QField('books.category_id'),
@@ -219,14 +218,13 @@ main() async {
 
       Sqler queryBooks2 =
           Sqler()
-            ..from(QField('books'))
+            ..from(books.qName)
             ..selects([
               ...books.getFieldsAs('books', 'b'),
               ...categoriesTable.getFieldsAs('cat', 'c'),
             ])
             ..join(
-              LeftJoin(
-                'categories',
+              categoriesTable.createLeftJoin(
                 On([
                   Condition(
                     QField('books.category_id'),
@@ -256,15 +254,13 @@ main() async {
       var query =
           Sqler()
             ..selects([QSelectAll()])
-            ..from(QField('books'))
-            ..where(
-              AndWhere([
-                ConditionString("name = {name}"),
-                ConditionString("author = {author}"),
-                ConditionString("publication_year = {publication_year}"),
-                ConditionString("category_id IS {category_id}"),
-              ]),
-            ).addParams({
+            ..from(books.qName)
+            ..whereAnd([
+              ConditionString("name = {name}"),
+              ConditionString("author = {author}"),
+              ConditionString("publication_year = {publication_year}"),
+              ConditionString("category_id IS {category_id}"),
+            ]).addParams({
               'name': QVar('Dart Programming'),
               'author': QVar('John Doe'),
               'publication_year': QVar(2023),

@@ -8,7 +8,7 @@ void main() {
           Sqler()
             ..selects([QSelect('field1'), QSelect('field2')])
             ..from(QField('table.name'))
-            ..where(WhereOne(QField('field1'), QO.EQ, QVar('value')));
+            ..whereOne(QField('field1'), QO.EQ, QVar('value'));
 
       expect(
         query.toSQL(),
@@ -21,12 +21,10 @@ void main() {
           Sqler()
             ..selects([QSelect('field1'), QSelect('field2')])
             ..from(QField('table.name'))
-            ..where(
-              AndWhere([
-                WhereOne(QField('field1'), QO.EQ, QVar('value1')),
-                WhereOne(QField('field2'), QO.GT, QVar(10)),
-              ]),
-            );
+            ..whereAnd([
+              Condition(QField('field1'), QO.EQ, QVar('value1')),
+              Condition(QField('field2'), QO.GT, QVar(10)),
+            ]);
 
       expect(
         query.toSQL(),
@@ -39,12 +37,10 @@ void main() {
           Sqler()
             ..selects([QSelect('field1'), QSelect('field2')])
             ..from(QField('table.name'))
-            ..where(
-              OrWhere([
-                WhereOne(QField('field1'), QO.EQ, QVar('value1')),
-                WhereOne(QField('field2'), QO.GT, QVar(10)),
-              ]),
-            );
+            ..whereOr([
+              Condition(QField('field1'), QO.EQ, QVar('value1')),
+              Condition(QField('field2'), QO.GT, QVar(10)),
+            ]);
 
       expect(
         query.toSQL(),
@@ -119,7 +115,7 @@ void main() {
                 ]),
               ),
             )
-            ..where(WhereOne(QField('table1.field2'), QO.GT, QVar(100)));
+            ..whereOne(QField('table1.field2'), QO.GT, QVar(100));
 
       expect(
         query.toSQL(),
@@ -146,7 +142,7 @@ void main() {
                 ]),
               ),
             )
-            ..where(WhereOne(QField('table1.field2'), QO.GT, QVar(100)));
+            ..whereOne(QField('table1.field2'), QO.GT, QVar(100));
 
       expect(
         query.toSQL(),
@@ -173,7 +169,7 @@ void main() {
                 ]),
               ),
             )
-            ..where(WhereOne(QField('table1.field2'), QO.GT, QVar(100)));
+            ..whereOne(QField('table1.field2'), QO.GT, QVar(100));
 
       expect(
         query.toSQL(),
@@ -269,7 +265,7 @@ void main() {
           Sqler()
             ..delete()
             ..from(QField('table.name'))
-            ..where(WhereOne(QField('field1'), QO.EQ, QVar('value1')));
+            ..whereOne(QField('field1'), QO.EQ, QVar('value1'));
 
       expect(
         query.toSQL(),
@@ -376,7 +372,7 @@ void main() {
               ),
             ])
             ..from(QField('table1'))
-            ..where(WhereOne(QField('field1'), QO.EQ, QVar('value1')))
+            ..whereOne(QField('field1'), QO.EQ, QVar('value1'))
             ..groupBy(['field1', 'field2'])
             ..orderBy(QOrder('field1', desc: true))
             ..limit(10);
@@ -398,13 +394,13 @@ void main() {
           Sqler()
             ..selects([QSelect('field1')])
             ..from(QField('sub_table'))
-            ..where(WhereOne(QField('field2'), QO.EQ, QVar('sub_value')));
+            ..whereOne(QField('field2'), QO.EQ, QVar('sub_value'));
 
       Sqler query =
           Sqler()
             ..selects([QSelect('field1'), QSelect('field2')])
             ..from(QField('main_table'))
-            ..where(WhereOne(QField('field3'), QO.IN, SubQuery(subQuery)));
+            ..whereOne(QField('field3'), QO.IN, SubQuery(subQuery));
 
       expect(
         query.toSQL(),
@@ -418,13 +414,13 @@ void main() {
           Sqler()
             ..selects([QSelect('field1')])
             ..from(QField('table1'))
-            ..where(WhereOne(QField('field2'), QO.EQ, QVar('value1')));
+            ..whereOne(QField('field2'), QO.EQ, QVar('value1'));
 
       Sqler query2 =
           Sqler()
             ..selects([QSelect('field1')])
             ..from(QField('table2'))
-            ..where(WhereOne(QField('field3'), QO.EQ, QVar('value2')));
+            ..whereOne(QField('field3'), QO.EQ, QVar('value2'));
 
       Union unionQuery = Union([query1, query2])
         ..addOrderBy(QOrder('field1', desc: true));
@@ -443,13 +439,13 @@ void main() {
           Sqler()
             ..selects([QSelect('field1')])
             ..from(QField('table1'))
-            ..where(WhereOne(QField('field2'), QO.EQ, QVar('value1')));
+            ..whereOne(QField('field2'), QO.EQ, QVar('value1'));
 
       Sqler query2 =
           Sqler()
             ..selects([QSelect('field1')])
             ..from(QField('table2'))
-            ..where(WhereOne(QField('field3'), QO.EQ, QVar('value2')));
+            ..whereOne(QField('field3'), QO.EQ, QVar('value2'));
 
       Union unionQuery = Union([query1, query2], uniunAll: true)
         ..addOrderBy(QOrder('field1', desc: false));
@@ -467,12 +463,12 @@ void main() {
           Sqler()
             ..selects([QSelect('field1')])
             ..from(QField('sub_table'))
-            ..where(WhereOne(QField('field2'), QO.EQ, QVar('sub_value')));
+            ..whereOne(QField('field2'), QO.EQ, QVar('sub_value'));
       Sqler query =
           Sqler()
             ..selects([QSelect('field1'), QSelect('field2')])
             ..from(QFromQuery(subQuery, as: 'sub_query'))
-            ..where(WhereOne(QField('field3'), QO.EQ, QVar('value3')));
+            ..whereOne(QField('field3'), QO.EQ, QVar('value3'));
 
       expect(
         query.toSQL(),

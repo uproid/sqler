@@ -13,7 +13,7 @@ void main() {
           Sqler()
             ..selects([QSelect('field')])
             ..from(QField('table'))
-            ..where(WhereOne(QField('field'), QO.EQ, QParam('123')));
+            ..whereOne(QField('field'), QO.EQ, QParam('123'));
 
       expect(
         query.toSQL(),

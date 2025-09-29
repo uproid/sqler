@@ -1,6 +1,7 @@
 ## 1.1.4
 - Added `add()`, clear() to `Where` class
 - Added `allSelectFields()` function to `MTable` to make a list of all columns for selecting
+- Added `whereAnd`, `whereOr` & `whereOne` for Sqler class
 
 ## 1.1.3
 
