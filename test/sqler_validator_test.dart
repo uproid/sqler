@@ -1,4 +1,4 @@
-import 'package:sqler/src/mysql_model.dart';
+import 'package:sqler/src/sql_model.dart';
 import 'package:test/test.dart';
 
 void main() {

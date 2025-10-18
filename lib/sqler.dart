@@ -1,4 +1,4 @@
 library;
 
-export 'src/mysql_query.dart';
-export 'src/mysql_model.dart';
+export 'src/sql_query.dart';
+export 'src/sql_model.dart';

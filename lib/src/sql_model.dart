@@ -15,9 +15,9 @@ import 'package:sqler/sqler.dart';
 ///     MFieldVarchar(name: 'email', length: 255),
 ///   ],
 /// );
-/// print(table.toSQL()); // Generates CREATE TABLE statement
+/// print(table.setDB(db).toSQL()); // Generates CREATE TABLE statement
 /// ```
-class MTable implements SQL {
+class MTable extends SQL {
   /// The name of the table
   String name;
 
@@ -115,10 +115,12 @@ class MTable implements SQL {
   /// ```
   List<QSelectField> getFieldsAs([String from = '', String newAlias = '']) {
     return fields.map((field) {
-      return QSelect(
+      var select = QSelect(
         from.isEmpty ? field.name : '$from.${field.name}',
         as: newAlias.isEmpty ? '' : '${newAlias}_${field.name}',
       );
+      select.setDB(db);
+      return select;
     }).toList();
   }
 
@@ -129,8 +131,12 @@ class MTable implements SQL {
   @override
   String toSQL() {
     String sql = 'CREATE TABLE `$name` (';
-    sql += fields.map((field) => field.toSQL()).join(', ');
-    sql += ') ENGINE=$engine DEFAULT CHARSET=$charset COLLATE=$collation;';
+    sql += fields.map((field) => field.setDB(db).toSQL()).join(', ');
+    sql += ')';
+    sql +=
+        db == DBType.mysql
+            ? ' ENGINE=$engine DEFAULT CHARSET=$charset COLLATE=$collation;'
+            : ';';
     return sql;
   }
 
@@ -154,6 +160,17 @@ class MTable implements SQL {
   }
 }
 
+/// SQLite table definition extending [MTable].
+class STable extends MTable {
+  STable({
+    required super.name,
+    required super.fields,
+    super.foreignKeys = const [],
+  }) {
+    db = DBType.sqlite;
+  }
+}
+
 typedef ValidatorEvent<T> = Future<String> Function(T value);
 
 /// Abstract base class for all MySQL field types.
@@ -163,7 +180,7 @@ typedef ValidatorEvent<T> = Future<String> Function(T value);
 ///
 /// All concrete field implementations should extend this class and provide
 /// their specific field type through the [FieldTypes] enum.
-abstract class MField implements SQL {
+abstract class MField extends SQL {
   /// The name of the field/column
   String name;
 
@@ -235,12 +252,13 @@ abstract class MField implements SQL {
   /// Example output: "`field_name` INT NOT NULL AUTO_INCREMENT PRIMARY KEY"
   @override
   String toSQL() {
-    String sql = '${QField(name).toSQL()} ${type.toSQL()}$_options';
+    String sql =
+        '${QField(name).setDB(db).toSQL()} ${type.setDB(db).toSQL()}$_options';
     if (isPrimaryKey) {
       sql += ' PRIMARY KEY';
     }
     if (isAutoIncrement) {
-      sql += ' AUTO_INCREMENT';
+      sql += db == DBType.mysql ? ' AUTO_INCREMENT' : ' AUTOINCREMENT';
     }
     if (!isNullable) {
       sql += ' NOT NULL';
@@ -280,6 +298,12 @@ class MFieldInt extends MField {
     super.comment,
     super.validators = const [],
   }) : super(type: FieldTypes.INT);
+
+  @override
+  String toSQL() {
+    type = db == DBType.mysql ? FieldTypes.INT : FieldTypes.INTEGER;
+    return super.toSQL();
+  }
 }
 
 /// MySQL BIGINT field type.
@@ -910,7 +934,11 @@ enum FieldTypes implements SQL {
 
   /// Spatial types
   POINT('POINT'),
-  POLYGON('POLYGON');
+  POLYGON('POLYGON'),
+
+  /// For SQLite
+  INTEGER('INTEGER'),
+  REAL('REAL');
 
   /// The SQL type name for this field type
   final String sqlType;
@@ -921,6 +949,17 @@ enum FieldTypes implements SQL {
   /// Returns the SQL representation of this field type
   @override
   String toSQL() => sqlType;
+
+  @override
+  DBType get db => DBType.mysql;
+
+  @override
+  SQL setDB(DBType db) {
+    return this;
+  }
+
+  @override
+  set db(DBType _) {}
 }
 
 /// Represents a foreign key constraint in MySQL.
@@ -938,7 +977,7 @@ enum FieldTypes implements SQL {
 ///   onUpdate: 'RESTRICT',
 /// );
 /// ```
-class ForeignKey implements SQL {
+class ForeignKey extends SQL {
   /// The name of the foreign key field in the current table
   String name;
 

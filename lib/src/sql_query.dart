@@ -41,7 +41,7 @@ import 'package:intl/intl.dart';
 ///   .orderBy(QOrder('users.name'))
 ///   .limit(10);
 ///
-/// String sql = query.toSQL();
+/// String sql = query.setDB(db).toSQL();
 /// // Generates: SELECT `users`.`name`, `profiles`.`bio` FROM `users`
 /// //           LEFT JOIN `profiles` ON ( ( `users`.`id` = `profiles`.`user_id` ) )
 /// //           WHERE ( `users`.`active` = true ) ORDER BY `users`.`name` ASC LIMIT 10
@@ -50,7 +50,7 @@ import 'package:intl/intl.dart';
 /// A SQL query builder for MySQL that provides a fluent interface for constructing
 /// SQL statements including SELECT, INSERT, UPDATE, and DELETE operations.
 ///
-/// The [Sqler] class implements the builder pattern, allowing method chaining
+/// The [Sqler] class extends the builder pattern, allowing method chaining
 /// to construct complex SQL queries programmatically. It supports all major SQL
 /// operations including joins, where clauses, grouping, ordering, and parameterized queries.
 ///
@@ -64,9 +64,9 @@ import 'package:intl/intl.dart';
 ///   .orderBy(QOrder('name'))
 ///   .limit(10);
 ///
-/// String sql = query.toSQL(); // Generates: SELECT `name`, `email` FROM `users` WHERE ( `active` = true ) ORDER BY `name` ASC LIMIT 10
+/// String sql = query.setDB(db).toSQL(); // Generates: SELECT `name`, `email` FROM `users` WHERE ( `active` = true ) ORDER BY `name` ASC LIMIT 10
 /// ```
-class Sqler implements SQL {
+class Sqler extends SQL {
   /// List of fields to select in SELECT queries
   List<QSelectField> _select = [];
 
@@ -274,7 +274,7 @@ class Sqler implements SQL {
   /// query.removeSelect(QSelect('name')); // Removes the name field from SELECT
   /// ```
   Sqler removeSelect(QSelectField select) {
-    _select.removeWhere((e) => e.toSQL() == select.toSQL());
+    _select.removeWhere((e) => e.setDB(db).toSQL() == select.setDB(db).toSQL());
     return this;
   }
 
@@ -288,7 +288,7 @@ class Sqler implements SQL {
   /// query.removeFrom(QField('users')); // Removes users table from FROM
   /// ```
   Sqler removeFrom(QField from) {
-    _from.removeWhere((e) => e.toSQL() == from.toSQL());
+    _from.removeWhere((e) => e.setDB(db).toSQL() == from.setDB(db).toSQL());
     return this;
   }
 
@@ -302,7 +302,7 @@ class Sqler implements SQL {
   /// query.removeWhere(WhereOne(QField('active'), QO.EQ, QVar(true))); // Removes this WHERE condition
   /// ```
   Sqler removeWhere(Where where) {
-    _where.removeWhere((e) => e.toSQL() == where.toSQL());
+    _where.removeWhere((e) => e.setDB(db).toSQL() == where.setDB(db).toSQL());
     return this;
   }
 
@@ -330,7 +330,9 @@ class Sqler implements SQL {
   /// query.removeGroupBy(QField('category')); // Removes category from GROUP BY
   /// ```
   Sqler removeGroupBy(QField groupBy) {
-    _groupBy.removeWhere((e) => e.toSQL() == groupBy.toSQL());
+    _groupBy.removeWhere(
+      (e) => e.setDB(db).toSQL() == groupBy.setDB(db).toSQL(),
+    );
     return this;
   }
 
@@ -344,7 +346,7 @@ class Sqler implements SQL {
   /// query.removeHaving(Having([Condition(QField('COUNT(*)'), QO.GT, QVar(5))])); // Removes this HAVING condition
   /// ```
   Sqler removeHaving(Having having) {
-    _having.removeWhere((e) => e.toSQL() == having.toSQL());
+    _having.removeWhere((e) => e.setDB(db).toSQL() == having.setDB(db).toSQL());
     return this;
   }
 
@@ -358,7 +360,9 @@ class Sqler implements SQL {
   /// query.removeOrderBy(QOrder('name')); // Removes name from ORDER BY
   /// ```
   Sqler removeOrderBy(QOrder orderBy) {
-    _orderBy.removeWhere((e) => e.toSQL() == orderBy.toSQL());
+    _orderBy.removeWhere(
+      (e) => e.setDB(db).toSQL() == orderBy.setDB(db).toSQL(),
+    );
     return this;
   }
 
@@ -372,7 +376,7 @@ class Sqler implements SQL {
   /// query.removeJoin(Join('orders', On([Condition(QField('users.id'), QO.EQ, QField('orders.user_id'))]))); // Removes this JOIN
   /// ```
   Sqler removeJoin(Join join) {
-    _joins.removeWhere((e) => e.toSQL() == join.toSQL());
+    _joins.removeWhere((e) => e.setDB(db).toSQL() == join.setDB(db).toSQL());
     return this;
   }
 
@@ -406,7 +410,7 @@ class Sqler implements SQL {
 
   /// Creates a copy of this query with optional overrides for specific properties.
   ///
-  /// This method implements the copy-with pattern, allowing you to create a new
+  /// This method extends the copy-with pattern, allowing you to create a new
   /// [Sqler] instance based on the current one but with some properties modified.
   /// Any parameter that is `null` will use the value from the current instance.
   ///
@@ -792,20 +796,20 @@ class Sqler implements SQL {
   ///   .from(QField('users'))
   ///   .where(WhereOne(QField('active'), QO.EQ, QVar(true)));
   ///
-  /// String sql = query.toSQL(); // "SELECT `name` FROM `users` WHERE ( `active` = true )"
+  /// String sql = query.setDB(db).toSQL(); // "SELECT `name` FROM `users` WHERE ( `active` = true )"
   /// ```
   @override
   String toSQL() {
     if (_insert.isNotEmpty) {
-      var sql = 'INSERT INTO ${_from.first.toSQL()} ';
+      var sql = 'INSERT INTO ${_from.first.setDB(db).toSQL()} ';
       sql +=
-          '(${_insert.first.keys.map((e) => QField(e).toSQL()).join(', ')}) ';
+          '(${_insert.first.keys.map((e) => QField(e).setDB(db).toSQL()).join(', ')}) ';
       sql += 'VALUES';
 
       for (var i = 0; i < _insert.length; i++) {
         var values = _insert[i].values
             .map((e) {
-              return e.toSQL();
+              return e.setDB(db).toSQL();
             })
             .join(', ');
         sql += ' ($values)';
@@ -822,63 +826,66 @@ class Sqler implements SQL {
       if (_from.isEmpty || _from.length > 1) {
         throw Exception('Update operation requires exactly one table.');
       }
-      sql = 'UPDATE ${_from.first.toSQL()}';
+      sql = 'UPDATE ${_from.first.setDB(db).toSQL()}';
     } else if (_delete) {
       if (_from.isEmpty || _from.length > 1) {
         throw Exception('Delete operation requires exactly one table.');
       }
-      sql = 'DELETE FROM ${_from[0].toSQL()}';
+      sql = 'DELETE FROM ${_from[0].setDB(db).toSQL()}';
     } else {
       sql =
-          'SELECT ${_select.map((e) => e.toSQL()).join(', ')} FROM ${_from.map((e) => e.toSQL()).join(', ')}';
+          'SELECT ${_select.map((e) => e.setDB(db).toSQL()).join(', ')} FROM ${_from.map((e) => e.setDB(db).toSQL()).join(', ')}';
     }
 
     // Joins
     if (_joins.isNotEmpty) {
       for (var join in _joins) {
-        sql += ' ${join.toSQL()}';
+        sql += ' ${join.setDB(db).toSQL()}';
       }
     }
 
     if (_update.isNotEmpty) {
       sql += ' SET ';
       sql += _update.entries
-          .map((e) => '${QField(e.key).toSQL()} = ${e.value.toSQL()}')
+          .map(
+            (e) =>
+                '${QField(e.key).setDB(db).toSQL()} = ${e.value.setDB(db).toSQL()}',
+          )
           .join(', ');
     }
 
     // Where
     if (_where.isNotEmpty) {
       sql += ' WHERE ';
-      sql += _where.map((e) => e.toSQL()).join(' AND ');
+      sql += _where.map((e) => e.setDB(db).toSQL()).join(' AND ');
     }
 
     // Group by
     if (_groupBy.isNotEmpty) {
-      sql += ' GROUP BY ${_groupBy.map((e) => e.toSQL()).join(', ')}';
+      sql += ' GROUP BY ${_groupBy.map((e) => e.setDB(db).toSQL()).join(', ')}';
     }
 
     // Having
     if (_having.isNotEmpty) {
       sql += ' HAVING ';
       for (int i = 0; i < _having.length; i++) {
-        sql += _having[i].toSQL();
+        sql += _having[i].setDB(db).toSQL();
       }
     }
 
     // Order by
     if (_orderBy.isNotEmpty) {
-      sql += ' ORDER BY ${_orderBy.map((e) => e.toSQL()).join(', ')}';
+      sql += ' ORDER BY ${_orderBy.map((e) => e.setDB(db).toSQL()).join(', ')}';
     }
 
     // Limit
     if (_limit.limit != null) {
-      sql += _limit.toSQL();
+      sql += _limit.setDB(db).toSQL();
     }
 
     if (_params.isNotEmpty) {
       for (var key in _params.keys) {
-        var value = _params[key]!.toSQL();
+        var value = _params[key]!.setDB(db).toSQL();
         sql = sql.replaceAll('{$key}', value.toString());
       }
     }
@@ -887,10 +894,17 @@ class Sqler implements SQL {
   }
 }
 
+/// Sqliter is a subclass of [Sqler] that serves as a specific implementation
+class Sqliter extends Sqler {
+  Sqliter() : super() {
+    db = DBType.sqlite;
+  }
+}
+
 /// Represents an ORDER BY clause specification with field name and sort direction.
 ///
 /// The [QOrder] class encapsulates the field to sort by and whether the sort
-/// should be in descending order. It implements the [SQL] interface to generate
+/// should be in descending order. It extends the [SQL] interface to generate
 /// the appropriate SQL fragment.
 ///
 /// Example usage:
@@ -898,7 +912,7 @@ class Sqler implements SQL {
 /// var order1 = QOrder('name'); // ORDER BY `name` ASC
 /// var order2 = QOrder('created_at', desc: true); // ORDER BY `created_at` DESC
 /// ```
-class QOrder implements SQL {
+class QOrder extends SQL {
   /// The field to order by
   QField field;
 
@@ -922,12 +936,12 @@ class QOrder implements SQL {
   ///
   /// Example:
   /// ```dart
-  /// QOrder('name').toSQL(); // "`name` ASC"
-  /// QOrder('created_at', desc: true).toSQL(); // "`created_at` DESC"
+  /// QOrder('name').setDB(db).toSQL(); // "`name` ASC"
+  /// QOrder('created_at', desc: true).setDB(db).toSQL(); // "`created_at` DESC"
   /// ```
   @override
   String toSQL() {
-    return '${field.toSQL()} ${desc ? 'DESC' : 'ASC'}';
+    return '${field.setDB(db).toSQL()} ${desc ? 'DESC' : 'ASC'}';
   }
 }
 
@@ -939,7 +953,7 @@ class QOrder implements SQL {
 ///
 /// All implementations must provide a [toSQL] method that returns the SQL
 /// representation of the field.
-abstract class QSelectField implements SQL {
+abstract class QSelectField extends SQL {
   @override
   String toSQL();
 }
@@ -952,7 +966,7 @@ abstract class QSelectField implements SQL {
 /// ```dart
 /// var selectAll = QSelectAll(); // Generates: *
 /// ```
-class QSelectAll implements QSelectField {
+class QSelectAll extends QSelectField {
   /// Creates a SELECT * field specification.
   QSelectAll();
 
@@ -971,7 +985,7 @@ class QSelectAll implements QSelectField {
 /// var customField = QSelectCustom(QSelect('name'), as: 'full_name'); // `name` AS `full_name`
 /// var customField2 = QSelectCustom(QMath('COUNT(*)')); // COUNT(*)
 /// ```
-class QSelectCustom implements QSelectField {
+class QSelectCustom extends QSelectField {
   /// The underlying field to select
   QSelectField field;
 
@@ -991,18 +1005,18 @@ class QSelectCustom implements QSelectField {
   ///
   /// Example:
   /// ```dart
-  /// QSelectCustom(QSelect('name'), as: 'full_name').toSQL(); // "`name` AS `full_name`"
-  /// QSelectCustom(QMath('COUNT(*)')).toSQL(); // "COUNT(*)"
+  /// QSelectCustom(QSelect('name'), as: 'full_name').setDB(db).toSQL(); // "`name` AS `full_name`"
+  /// QSelectCustom(QMath('COUNT(*)')).setDB(db).toSQL(); // "COUNT(*)"
   /// ```
   @override
   String toSQL() {
     return as.isNotEmpty
-        ? '${field.toSQL()} AS ${QField(as).toSQL()}'
-        : field.toSQL();
+        ? '${field.setDB(db).toSQL()} AS ${QField(as).setDB(db).toSQL()}'
+        : field.setDB(db).toSQL();
   }
 }
 
-class QSelectString implements QSelectField {
+class QSelectString extends QSelectField {
   /// The string value to select
   String value;
 
@@ -1015,7 +1029,7 @@ class QSelectString implements QSelectField {
   ///
   /// Example:
   /// ```dart
-  /// QSelectString('Hello, World!').toSQL(); // "'Hello, World!'"
+  /// QSelectString('Hello, World!').setDB(db).toSQL(); // "'Hello, World!'"
   /// ```
   @override
   String toSQL() {
@@ -1034,7 +1048,7 @@ class QSelectString implements QSelectField {
 /// var sum = QMath('SUM(price)'); // SUM(price)
 /// var calc = QMath('price * quantity'); // price * quantity
 /// ```
-class QMath implements QSelectField {
+class QMath extends QSelectField {
   /// The mathematical expression or function as raw SQL
   String math;
 
@@ -1047,7 +1061,7 @@ class QMath implements QSelectField {
   ///
   /// Example:
   /// ```dart
-  /// QMath('COUNT(*)').toSQL(); // "COUNT(*)"
+  /// QMath('COUNT(*)').setDB(db).toSQL(); // "COUNT(*)"
   /// ```
   @override
   String toSQL() {
@@ -1065,7 +1079,7 @@ class QMath implements QSelectField {
 /// var field1 = QSelect('name'); // `name`
 /// var field2 = QSelect('email', as: 'user_email'); // `email` AS `user_email`
 /// ```
-class QSelect implements QSelectField {
+class QSelect extends QSelectField {
   /// The field name to select
   String field;
 
@@ -1084,14 +1098,14 @@ class QSelect implements QSelectField {
   ///
   /// Example:
   /// ```dart
-  /// QSelect('name').toSQL(); // "`name`"
-  /// QSelect('email', as: 'user_email').toSQL(); // "`email` AS `user_email`"
+  /// QSelect('name').setDB(db).toSQL(); // "`name`"
+  /// QSelect('email', as: 'user_email').setDB(db).toSQL(); // "`email` AS `user_email`"
   /// ```
   @override
   String toSQL() {
     return as.isNotEmpty
-        ? '${QField(field).toSQL()} AS ${QField(as).toSQL()}'
-        : QField(field).toSQL();
+        ? '${QField(field).setDB(db).toSQL()} AS ${QField(as).setDB(db).toSQL()}'
+        : QField(field).setDB(db).toSQL();
   }
 }
 
@@ -1108,7 +1122,7 @@ class QSelect implements QSelectField {
 /// ```dart
 /// // Used indirectly through concrete implementations like WhereOne, OrWhere, etc.
 /// ```
-abstract class Where implements SQL {
+abstract class Where extends SQL {
   /// List of SQL conditions contained in this WHERE clause
   List<SQL> _whereBodies = [];
 
@@ -1143,7 +1157,7 @@ abstract class Where implements SQL {
   String toSQL() {
     var sql = <String>[];
     for (int i = 0; i < _whereBodies.length; i++) {
-      sql.add('( ${_whereBodies[i].toSQL()} )');
+      sql.add('( ${_whereBodies[i].setDB(db).toSQL()} )');
     }
     return sql.join(' AND ');
   }
@@ -1172,11 +1186,11 @@ class WhereOne extends Where {
   ///
   /// Example:
   /// ```dart
-  /// WhereOne(QField('age'), QO.GT, QVar(18)).toSQL(); // "( `age` > 18 )"
+  /// WhereOne(QField('age'), QO.GT, QVar(18)).setDB(db).toSQL(); // "( `age` > 18 )"
   /// ```
   @override
   String toSQL() {
-    return _whereBodies.first.toSQL();
+    return _whereBodies.first.setDB(db).toSQL();
   }
 }
 
@@ -1214,7 +1228,7 @@ class OrWhere extends Where {
   String toSQL() {
     var sql = <String>[];
     for (int i = 0; i < _whereBodies.length; i++) {
-      sql.add('( ${_whereBodies[i].toSQL()} )');
+      sql.add('( ${_whereBodies[i].setDB(db).toSQL()} )');
     }
     return sql.join(' OR ');
   }
@@ -1255,7 +1269,7 @@ class AndWhere extends Where {
   String toSQL() {
     var sql = <String>[];
     for (int i = 0; i < _whereBodies.length; i++) {
-      sql.add('( ${_whereBodies[i].toSQL()} )');
+      sql.add('( ${_whereBodies[i].setDB(db).toSQL()} )');
     }
     return sql.join(' AND ');
   }
@@ -1279,7 +1293,7 @@ class AndWhere extends Where {
 /// var listVar = QVar([1, 2, 3]); // (1, 2, 3)
 /// var nullVar = QVar(null); // NULL
 /// ```
-class QVar<T> implements SQL {
+class QVar<T> extends SQL {
   /// The Dart value to be converted to SQL
   dynamic value;
 
@@ -1295,7 +1309,7 @@ class QVar<T> implements SQL {
   /// Returns the SQL-safe string representation of the value.
   @override
   String toSQL() {
-    return QVar._to<T>(value);
+    return _to<T>(value);
   }
 
   /// Internal method that handles the conversion logic for different data types.
@@ -1308,14 +1322,14 @@ class QVar<T> implements SQL {
   /// - Lists: Comma-separated values in parentheses
   /// - null: "NULL"
   /// - Others: toString() representation
-  static String _to<R>(dynamic value) {
+  String _to<R>(dynamic value) {
     if (value is SQL) {
-      return '( ${value.toSQL()} )';
+      return '( ${value.setDB(db).toSQL()} )';
     } else if (value is String) {
       value = QVar.escape(value);
       return "'$value'";
     } else if (value is DateTime) {
-      return QVar.dateTime(value).toSQL();
+      return QVar.dateTime(value).setDB(db).toSQL();
     } else if (value is List) {
       return '(${value.map((e) => _to(e)).join(', ')})';
     } else if (value == null) {
@@ -1468,8 +1482,8 @@ class QVarLike extends QVar<String> {
   ///
   /// Example:
   /// ```dart
-  /// QVarLike('John', left: false, right: true).toSQL(); // "'John%'"
-  /// QVarLike('50%', left: true, right: false).toSQL(); // "'%50\\%'"
+  /// QVarLike('John', left: false, right: true).setDB(db).toSQL(); // "'John%'"
+  /// QVarLike('50%', left: true, right: false).setDB(db).toSQL(); // "'%50\\%'"
   /// ```
   @override
   String toSQL() {
@@ -1518,26 +1532,28 @@ class QField extends QVar<String> {
   ///
   /// Example:
   /// ```dart
-  /// QField('name').toSQL(); // "`name`"
-  /// QField('users.email').toSQL(); // "`users`.`email`"
-  /// QField('count', as: 'total').toSQL(); // "`count` AS `total`"
+  /// QField('name').setDB(db).toSQL(); // "`name`"
+  /// QField('users.email').setDB(db).toSQL(); // "`users`.`email`"
+  /// QField('count', as: 'total').setDB(db).toSQL(); // "`count` AS `total`"
   /// ```
   @override
   String toSQL() {
+    String q(v) => db == DBType.mysql ? '`$v`' : '"$v"';
+
     var hasDot = value.contains('.');
     var sql = distinct ? 'DISTINCT ' : '';
     if (hasDot) {
       var parts = value.split('.');
       if (as.isNotEmpty) {
-        return '$sql${parts[0]}.`${parts[1]}` AS `$as`';
+        return '$sql${parts[0]}.${q(parts[1])} AS ${q(as)}';
       }
-      return '$sql${parts[0]}.`${parts[1]}`';
+      return '$sql${parts[0]}.${q(parts[1])}';
     }
 
     if (as.isNotEmpty) {
-      return '$sql`$value` AS `$as`';
+      return '$sql${q(value)} AS ${q(as)}';
     }
-    return '$sql`$value`';
+    return '$sql${q(value)}';
   }
 
   /// Convenience method to create a field representing an 'id' column.
@@ -1596,9 +1612,9 @@ class QFromQuery extends QField {
   /// ```
   @override
   String toSQL() {
-    var sql = query.toSQL();
+    var sql = query.setDB(db).toSQL();
     if (as.isNotEmpty) {
-      return '($sql) AS `$as`';
+      return '($sql) AS ${db == DBType.mysql ? '`$as`' : '"$as"'}';
     }
     return '($sql)';
   }
@@ -1622,7 +1638,7 @@ class QNull extends QVar<String> {
   }
 }
 
-class CaseCondition implements SQL {
+class CaseCondition extends SQL {
   Condition when;
   QVar then;
 
@@ -1630,22 +1646,22 @@ class CaseCondition implements SQL {
 
   @override
   String toSQL() {
-    return 'WHEN ${when.toSQL()} THEN ${then.toSQL()}';
+    return 'WHEN ${when.setDB(db).toSQL()} THEN ${then.setDB(db).toSQL()}';
   }
 }
 
-class SubQuery implements QSelectField {
+class SubQuery extends QSelectField {
   SQL subQuery;
 
   SubQuery(this.subQuery);
 
   @override
   String toSQL() {
-    return '(${subQuery.toSQL()})';
+    return '(${subQuery.setDB(db).toSQL()})';
   }
 }
 
-class Case implements QSelectField {
+class Case extends QSelectField {
   QField? as;
   List<CaseCondition> conditions;
   QVar? elseValue;
@@ -1656,14 +1672,15 @@ class Case implements QSelectField {
   String toSQL() {
     var sql = 'CASE';
     for (var condition in conditions) {
-      sql += " ${condition.toSQL()}"; // Add space after each condition
+      sql +=
+          " ${condition.setDB(db).toSQL()}"; // Add space after each condition
     }
     if (elseValue != null) {
-      sql += ' ELSE ${elseValue!.toSQL()}';
+      sql += ' ELSE ${elseValue!.setDB(db).toSQL()}';
     }
     sql += ' END';
     if (as != null) {
-      sql += ' AS ${as!.toSQL()}';
+      sql += ' AS ${as!.setDB(db).toSQL()}';
     }
     return sql;
   }
@@ -1677,7 +1694,7 @@ class Case implements QSelectField {
   }
 }
 
-class On implements SQL {
+class On extends SQL {
   final List<Condition> _onBodies = [];
 
   On([List<Condition>? onBodies]) {
@@ -1690,7 +1707,7 @@ class On implements SQL {
   String toSQL() {
     var sql = <String>[];
     for (int i = 0; i < _onBodies.length; i++) {
-      sql.add('( ${_onBodies[i].toSQL()} )');
+      sql.add('( ${_onBodies[i].setDB(db).toSQL()} )');
     }
     return sql.join(' AND ');
   }
@@ -1709,11 +1726,11 @@ class OnOne extends On {
 
   @override
   String toSQL() {
-    return _onBodies.first.toSQL();
+    return _onBodies.first.setDB(db).toSQL();
   }
 }
 
-class Having implements SQL {
+class Having extends SQL {
   final List<SQL> _havingBodies = [];
 
   Having([List<SQL>? whereBodies]) {
@@ -1726,13 +1743,13 @@ class Having implements SQL {
   String toSQL() {
     var sql = <String>[];
     for (int i = 0; i < _havingBodies.length; i++) {
-      sql.add('( ${_havingBodies[i].toSQL()} )');
+      sql.add('( ${_havingBodies[i].setDB(db).toSQL()} )');
     }
     return sql.join(' AND  ');
   }
 }
 
-class Condition implements SQL {
+class Condition extends SQL {
   SQL right;
   SQL left;
   QO operator;
@@ -1741,7 +1758,7 @@ class Condition implements SQL {
 
   @override
   String toSQL() {
-    return '( ${left.toSQL()} ${operator.toSQL()} ${right.toSQL()} )';
+    return '( ${left.setDB(db).toSQL()} ${operator.setDB(db).toSQL()} ${right.setDB(db).toSQL()} )';
   }
 }
 
@@ -1767,12 +1784,19 @@ class ConditionString extends Condition {
 ///
 /// Example implementations:
 /// ```dart
-/// class MyCustomSQL implements SQL {
+/// class MyCustomSQL extends SQL {
 ///   @override
 ///   String toSQL() => 'CUSTOM SQL HERE';
 /// }
 /// ```
-abstract interface class SQL {
+abstract class SQL {
+  DBType db = DBType.mysql;
+
+  SQL setDB(DBType db) {
+    this.db = db;
+    return this;
+  }
+
   /// Converts this SQL component to its string representation.
   ///
   /// Every implementation must provide this method to generate the
@@ -1860,7 +1884,7 @@ abstract interface class SQL {
 /// that can be combined with either AND or OR logic.
 ///
 /// [Deprecated] - Consider using the more specific Where subclasses instead.
-abstract class WhereBody implements SQL {
+abstract class WhereBody extends SQL {
   /// The type of logic to use when combining conditions
   WhereType type;
 
@@ -1880,7 +1904,7 @@ abstract class WhereBody implements SQL {
   String toSQL() {
     var res = [];
     for (var condition in conditions) {
-      res.add(condition.toSQL());
+      res.add(condition.setDB(db).toSQL());
     }
     return res.join('  ${type == WhereType.AND ? 'AND' : 'OR'} ');
   }
@@ -1903,7 +1927,7 @@ enum WhereType {
 ///
 /// The [QO] enum provides all common SQL operators used in WHERE conditions,
 /// HAVING clauses, and other conditional expressions. Each enum value
-/// implements the [SQL] interface to generate the appropriate operator symbol.
+/// extends the [SQL] interface to generate the appropriate operator symbol.
 ///
 /// Example usage:
 /// ```dart
@@ -1978,9 +2002,9 @@ enum QO implements SQL {
   ///
   /// Example:
   /// ```dart
-  /// QO.EQ.toSQL(); // "="
-  /// QO.LIKE.toSQL(); // "LIKE"
-  /// QO.IS_NULL.toSQL(); // "IS NULL"
+  /// QO.EQ.setDB(db).toSQL(); // "="
+  /// QO.LIKE.setDB(db).toSQL(); // "LIKE"
+  /// QO.IS_NULL.setDB(db).toSQL(); // "IS NULL"
   /// ```
   @override
   String toSQL() {
@@ -2017,6 +2041,17 @@ enum QO implements SQL {
         return 'EXISTS';
     }
   }
+
+  @override
+  DBType get db => DBType.mysql;
+
+  @override
+  SQL setDB(DBType db) {
+    return this;
+  }
+
+  @override
+  set db(DBType _) {}
 }
 
 class And extends WhereBody {
@@ -2027,7 +2062,7 @@ class Or extends WhereBody {
   Or(super.conditions) : super(type: WhereType.OR);
 }
 
-class Limit implements SQL {
+class Limit extends SQL {
   int? offset;
   int? limit;
 
@@ -2046,7 +2081,7 @@ class Limit implements SQL {
   }
 }
 
-class Join implements SQL {
+class Join extends SQL {
   String table;
   String as;
   On on;
@@ -2059,11 +2094,11 @@ class Join implements SQL {
 
   @override
   String toSQL() {
-    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).toSQL()}' : '';
+    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).setDB(db).toSQL()}' : '';
     if (on._onBodies.isNotEmpty) {
-      return 'JOIN ${QField(table).toSQL()}$sqlAs ON ${on.toSQL()}';
+      return 'JOIN ${QField(table).setDB(db).toSQL()}$sqlAs ON ${on.setDB(db).toSQL()}';
     }
-    return 'JOIN ${QField(table).toSQL()}$sqlAs';
+    return 'JOIN ${QField(table).setDB(db).toSQL()}$sqlAs';
   }
 }
 
@@ -2072,11 +2107,11 @@ class LeftJoin extends Join {
 
   @override
   String toSQL() {
-    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).toSQL()}' : '';
+    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).setDB(db).toSQL()}' : '';
     if (on._onBodies.isNotEmpty) {
-      return 'LEFT JOIN ${QField(table).toSQL()}$sqlAs ON ${on.toSQL()}';
+      return 'LEFT JOIN ${QField(table).setDB(db).toSQL()}$sqlAs ON ${on.setDB(db).toSQL()}';
     }
-    return 'LEFT JOIN ${QField(table).toSQL()}$sqlAs';
+    return 'LEFT JOIN ${QField(table).setDB(db).toSQL()}$sqlAs';
   }
 }
 
@@ -2085,11 +2120,11 @@ class RightJoin extends Join {
 
   @override
   String toSQL() {
-    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).toSQL()}' : '';
+    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).setDB(db).toSQL()}' : '';
     if (on._onBodies.isNotEmpty) {
-      return 'RIGHT JOIN ${QField(table).toSQL()}$sqlAs ON ${on.toSQL()}';
+      return 'RIGHT JOIN ${QField(table).setDB(db).toSQL()}$sqlAs ON ${on.setDB(db).toSQL()}';
     }
-    return 'RIGHT JOIN ${QField(table).toSQL()}$sqlAs';
+    return 'RIGHT JOIN ${QField(table).setDB(db).toSQL()}$sqlAs';
   }
 }
 
@@ -2107,10 +2142,10 @@ class Union extends SQL {
   @override
   String toSQL() {
     var sql = queries
-        .map((q) => q.toSQL())
+        .map((q) => q.setDB(db).toSQL())
         .join(' UNION ${uniunAll ? 'ALL ' : ''}');
     if (_orderBy.isNotEmpty) {
-      sql += ' ORDER BY ${_orderBy.map((e) => e.toSQL()).join(', ')}';
+      sql += ' ORDER BY ${_orderBy.map((e) => e.setDB(db).toSQL()).join(', ')}';
     }
     return sql;
   }
@@ -2119,13 +2154,17 @@ class Union extends SQL {
 /// Represents an EXPLAIN statement for a SQL query.
 /// This class wraps a Sqler query and generates the EXPLAIN SQL statement
 /// to analyze the query execution plan.
-class SqlExplain implements SQL {
+class SqlExplain extends SQL {
   final Sqler query;
 
-  SqlExplain(this.query);
+  SqlExplain(this.query) {
+    print(db);
+  }
 
   @override
   String toSQL() {
-    return 'EXPLAIN ${query.toSQL()}';
+    return 'EXPLAIN ${query.setDB(db).toSQL()}';
   }
 }
+
+enum DBType { mysql, sqlite }
