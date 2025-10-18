@@ -873,58 +873,91 @@ class MFieldPolygon extends MField {
 /// when defining table fields. Each enum value corresponds to a specific MySQL data type.
 enum FieldTypes implements SQL {
   /// Integer types
+  // ignore: constant_identifier_names
   INT('INT'),
+  // ignore: constant_identifier_names
   BIGINT('BIGINT'),
+  // ignore: constant_identifier_names
   MEDIUMINT('MEDIUMINT'),
+  // ignore: constant_identifier_names
   SMALLINT('SMALLINT'),
+  // ignore: constant_identifier_names
   TINYINT('TINYINT'),
 
   /// String types
+  // ignore: constant_identifier_names
   CHAR('CHAR'),
+  // ignore: constant_identifier_names
   VARCHAR('VARCHAR'),
 
   /// Floating-point types
+  // ignore: constant_identifier_names
   FLOAT('FLOAT'),
+  // ignore: constant_identifier_names
   DECIMAL('DECIMAL'),
 
   /// Boolean type
+  // ignore: constant_identifier_names
   BOOLEAN('BOOLEAN'),
 
   /// Text types
+  // ignore: constant_identifier_names
   TEXT('TEXT'),
+  // ignore: constant_identifier_names
   TINYTEXT('TINYTEXT'),
+  // ignore: constant_identifier_names
   MEDIUMTEXT('MEDIUMTEXT'),
+  // ignore: constant_identifier_names
   LONGTEXT('LONGTEXT'),
 
   /// Date and time types
+  // ignore: constant_identifier_names
   DATE('DATE'),
+  // ignore: constant_identifier_names
   DATETIME('DATETIME'),
+  // ignore: constant_identifier_names
   TIMESTAMP('TIMESTAMP'),
+  // ignore: constant_identifier_names
   TIME('TIME'),
+  // ignore: constant_identifier_names
   YEAR('YEAR'),
 
   /// Binary types
+  // ignore: constant_identifier_names
   BIT('BIT'),
+  // ignore: constant_identifier_names
   BINARY('BINARY'),
+  // ignore: constant_identifier_names
   VARBINARY('VARBINARY'),
 
   /// BLOB types
+  // ignore: constant_identifier_names
   BLOB('BLOB'),
+  // ignore: constant_identifier_names
   MEDIUMBLOB('MEDIUMBLOB'),
+  // ignore: constant_identifier_names
   LONGBLOB('LONGBLOB'),
+  // ignore: constant_identifier_names
   TINYBLOB('TINYBLOB'),
 
   /// Special types
+  // ignore: constant_identifier_names
   ENUM('ENUM'),
+  // ignore: constant_identifier_names
   SET('SET'),
+  // ignore: constant_identifier_names
   JSON('JSON'),
 
   /// Spatial types
+  // ignore: constant_identifier_names
   POINT('POINT'),
+  // ignore: constant_identifier_names
   POLYGON('POLYGON'),
 
   /// For SQLite
+  // ignore: constant_identifier_names
   INTEGER('INTEGER'),
+  // ignore: constant_identifier_names
   REAL('REAL');
 
   /// The SQL type name for this field type
