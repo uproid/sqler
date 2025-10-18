@@ -47,7 +47,7 @@ main() async {
 
   group('Test on Mysql connection', () {
     test('Insert a book', () async {
-      var query = Sqliter().insert(QField('books'), [
+      var query = Sqler().insert(QField('books'), [
         {
           'name': QVar('Dart Programming'),
           'author': QVar('John Doe'),
@@ -65,7 +65,7 @@ main() async {
 
     test('Select all books', () async {
       var query =
-          Sqliter()
+          Sqler()
             ..from(books.qName)
             ..selects([QSelectAll()]);
       var result = await execute(query.toSQL<Sqlite>());
@@ -81,7 +81,7 @@ main() async {
 
     test('Select a book by ID', () async {
       var query =
-          Sqliter()
+          Sqler()
             ..from(books.qName)
             ..selects([QSelectAll()])
             ..whereOne(QField('id'), QO.EQ, QVar(1));
@@ -93,7 +93,7 @@ main() async {
     });
 
     test('Insert Many', () async {
-      var query = Sqliter().insert(QField('books'), [
+      var query = Sqler().insert(QField('books'), [
         {
           'name': QVar('Flutter Development'),
           'author': QVar('Jane Smith'),
@@ -127,7 +127,7 @@ main() async {
 
     test('Test Aggregation Functions', () async {
       var query =
-          Sqliter()
+          Sqler()
             ..from(books.qName)
             ..selects([
               SQL.sum<Sqlite>(
@@ -160,8 +160,8 @@ main() async {
     });
 
     test('Test EXPLAIN', () async {
-      Sqliter bookQuery =
-          Sqliter()
+      Sqler bookQuery =
+          Sqler()
             ..from(books.qName)
             ..selects([QSelectAll()])
             ..whereOne(QField('id'), QO.EQ, QVar(1));
@@ -175,8 +175,8 @@ main() async {
     test('Test Join', () async {
       execute(categoriesTable.toSQL<Sqlite>());
 
-      Sqliter insertQuery =
-          Sqliter()..insert(categoriesTable.qName, [
+      Sqler insertQuery =
+          Sqler()..insert(categoriesTable.qName, [
             {'title': QVar('Programming')},
             {'title': QVar('Web Development')},
             {'title': QVar('Mobile Development')},
@@ -184,8 +184,8 @@ main() async {
 
       execute(insertQuery.toSQL<Sqlite>());
 
-      Sqliter queryBooks1 =
-          Sqliter()
+      Sqler queryBooks1 =
+          Sqler()
             ..from(books.qName)
             ..selects([
               ...books.getFieldsAs('books', 'b'),
@@ -204,8 +204,8 @@ main() async {
               ),
             );
 
-      Sqliter queryBooks2 =
-          Sqliter()
+      Sqler queryBooks2 =
+          Sqler()
             ..from(books.qName)
             ..selects([
               ...books.getFieldsAs('books', 'b'),
@@ -240,7 +240,7 @@ main() async {
 
     test('Test ConditionString', () async {
       var query =
-          Sqliter()
+          Sqler()
             ..selects([QSelectAll()])
             ..from(books.qName)
             ..whereAnd([
@@ -261,12 +261,12 @@ main() async {
     });
 
     test('Test Nested Conditions & Joins', () async {
-      Sqliter allBooksQuery =
-          Sqliter()
+      Sqler allBooksQuery =
+          Sqler()
             ..selects([QSelect('id')])
             ..from(QField('books'));
 
-      Sqliter query = Sqliter();
+      Sqler query = Sqler();
       query.selects([
           ...books.getFieldsAs('books', 'b'),
           ...categoriesTable.getFieldsAs('cat', 'c'),

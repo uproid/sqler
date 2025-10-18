@@ -887,11 +887,6 @@ class Sqler extends SQL {
   }
 }
 
-/// Sqliter is a subclass of [Sqler] that serves as a specific implementation
-class Sqliter extends Sqler {
-  Sqliter() : super();
-}
-
 /// Represents an ORDER BY clause specification with field name and sort direction.
 ///
 /// The [QOrder] class encapsulates the field to sort by and whether the sort
