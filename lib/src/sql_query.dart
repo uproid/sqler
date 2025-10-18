@@ -41,7 +41,7 @@ import 'package:intl/intl.dart';
 ///   .orderBy(QOrder('users.name'))
 ///   .limit(10);
 ///
-/// String sql = query.setDB(db).toSQL();
+/// String sql = query.toSQL();
 /// // Generates: SELECT `users`.`name`, `profiles`.`bio` FROM `users`
 /// //           LEFT JOIN `profiles` ON ( ( `users`.`id` = `profiles`.`user_id` ) )
 /// //           WHERE ( `users`.`active` = true ) ORDER BY `users`.`name` ASC LIMIT 10
@@ -64,7 +64,7 @@ import 'package:intl/intl.dart';
 ///   .orderBy(QOrder('name'))
 ///   .limit(10);
 ///
-/// String sql = query.setDB(db).toSQL(); // Generates: SELECT `name`, `email` FROM `users` WHERE ( `active` = true ) ORDER BY `name` ASC LIMIT 10
+/// String sql = query.toSQL(); // Generates: SELECT `name`, `email` FROM `users` WHERE ( `active` = true ) ORDER BY `name` ASC LIMIT 10
 /// ```
 class Sqler extends SQL {
   /// List of fields to select in SELECT queries
@@ -274,7 +274,7 @@ class Sqler extends SQL {
   /// query.removeSelect(QSelect('name')); // Removes the name field from SELECT
   /// ```
   Sqler removeSelect(QSelectField select) {
-    _select.removeWhere((e) => e.setDB(db).toSQL() == select.setDB(db).toSQL());
+    _select.removeWhere((e) => e.toSQL() == select.toSQL());
     return this;
   }
 
@@ -288,7 +288,7 @@ class Sqler extends SQL {
   /// query.removeFrom(QField('users')); // Removes users table from FROM
   /// ```
   Sqler removeFrom(QField from) {
-    _from.removeWhere((e) => e.setDB(db).toSQL() == from.setDB(db).toSQL());
+    _from.removeWhere((e) => e.toSQL() == from.toSQL());
     return this;
   }
 
@@ -302,7 +302,7 @@ class Sqler extends SQL {
   /// query.removeWhere(WhereOne(QField('active'), QO.EQ, QVar(true))); // Removes this WHERE condition
   /// ```
   Sqler removeWhere(Where where) {
-    _where.removeWhere((e) => e.setDB(db).toSQL() == where.setDB(db).toSQL());
+    _where.removeWhere((e) => e.toSQL() == where.toSQL());
     return this;
   }
 
@@ -330,9 +330,7 @@ class Sqler extends SQL {
   /// query.removeGroupBy(QField('category')); // Removes category from GROUP BY
   /// ```
   Sqler removeGroupBy(QField groupBy) {
-    _groupBy.removeWhere(
-      (e) => e.setDB(db).toSQL() == groupBy.setDB(db).toSQL(),
-    );
+    _groupBy.removeWhere((e) => e.toSQL() == groupBy.toSQL());
     return this;
   }
 
@@ -346,7 +344,7 @@ class Sqler extends SQL {
   /// query.removeHaving(Having([Condition(QField('COUNT(*)'), QO.GT, QVar(5))])); // Removes this HAVING condition
   /// ```
   Sqler removeHaving(Having having) {
-    _having.removeWhere((e) => e.setDB(db).toSQL() == having.setDB(db).toSQL());
+    _having.removeWhere((e) => e.toSQL() == having.toSQL());
     return this;
   }
 
@@ -360,9 +358,7 @@ class Sqler extends SQL {
   /// query.removeOrderBy(QOrder('name')); // Removes name from ORDER BY
   /// ```
   Sqler removeOrderBy(QOrder orderBy) {
-    _orderBy.removeWhere(
-      (e) => e.setDB(db).toSQL() == orderBy.setDB(db).toSQL(),
-    );
+    _orderBy.removeWhere((e) => e.toSQL() == orderBy.toSQL());
     return this;
   }
 
@@ -376,7 +372,7 @@ class Sqler extends SQL {
   /// query.removeJoin(Join('orders', On([Condition(QField('users.id'), QO.EQ, QField('orders.user_id'))]))); // Removes this JOIN
   /// ```
   Sqler removeJoin(Join join) {
-    _joins.removeWhere((e) => e.setDB(db).toSQL() == join.setDB(db).toSQL());
+    _joins.removeWhere((e) => e.toSQL() == join.toSQL());
     return this;
   }
 
@@ -796,20 +792,20 @@ class Sqler extends SQL {
   ///   .from(QField('users'))
   ///   .where(WhereOne(QField('active'), QO.EQ, QVar(true)));
   ///
-  /// String sql = query.setDB(db).toSQL(); // "SELECT `name` FROM `users` WHERE ( `active` = true )"
+  /// String sql = query.toSQL(); // "SELECT `name` FROM `users` WHERE ( `active` = true )"
   /// ```
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     if (_insert.isNotEmpty) {
-      var sql = 'INSERT INTO ${_from.first.setDB(db).toSQL()} ';
+      var sql = 'INSERT INTO ${_from.first.toSQL<T>()} ';
       sql +=
-          '(${_insert.first.keys.map((e) => QField(e).setDB(db).toSQL()).join(', ')}) ';
+          '(${_insert.first.keys.map((e) => QField(e).toSQL<T>()).join(', ')}) ';
       sql += 'VALUES';
 
       for (var i = 0; i < _insert.length; i++) {
         var values = _insert[i].values
             .map((e) {
-              return e.setDB(db).toSQL();
+              return e.toSQL<T>();
             })
             .join(', ');
         sql += ' ($values)';
@@ -826,66 +822,63 @@ class Sqler extends SQL {
       if (_from.isEmpty || _from.length > 1) {
         throw Exception('Update operation requires exactly one table.');
       }
-      sql = 'UPDATE ${_from.first.setDB(db).toSQL()}';
+      sql = 'UPDATE ${_from.first.toSQL<T>()}';
     } else if (_delete) {
       if (_from.isEmpty || _from.length > 1) {
         throw Exception('Delete operation requires exactly one table.');
       }
-      sql = 'DELETE FROM ${_from[0].setDB(db).toSQL()}';
+      sql = 'DELETE FROM ${_from[0].toSQL<T>()}';
     } else {
       sql =
-          'SELECT ${_select.map((e) => e.setDB(db).toSQL()).join(', ')} FROM ${_from.map((e) => e.setDB(db).toSQL()).join(', ')}';
+          'SELECT ${_select.map((e) => e.toSQL<T>()).join(', ')} FROM ${_from.map((e) => e.toSQL<T>()).join(', ')}';
     }
 
     // Joins
     if (_joins.isNotEmpty) {
       for (var join in _joins) {
-        sql += ' ${join.setDB(db).toSQL()}';
+        sql += ' ${join.toSQL<T>()}';
       }
     }
 
     if (_update.isNotEmpty) {
       sql += ' SET ';
       sql += _update.entries
-          .map(
-            (e) =>
-                '${QField(e.key).setDB(db).toSQL()} = ${e.value.setDB(db).toSQL()}',
-          )
+          .map((e) => '${QField(e.key).toSQL<T>()} = ${e.value.toSQL<T>()}')
           .join(', ');
     }
 
     // Where
     if (_where.isNotEmpty) {
       sql += ' WHERE ';
-      sql += _where.map((e) => e.setDB(db).toSQL()).join(' AND ');
+      sql += _where.map((e) => e.toSQL<T>()).join(' AND ');
     }
 
     // Group by
     if (_groupBy.isNotEmpty) {
-      sql += ' GROUP BY ${_groupBy.map((e) => e.setDB(db).toSQL()).join(', ')}';
+      sql += ' GROUP BY ${_groupBy.map((e) => e.toSQL<T>()).join(', ')}';
     }
 
     // Having
     if (_having.isNotEmpty) {
       sql += ' HAVING ';
       for (int i = 0; i < _having.length; i++) {
-        sql += _having[i].setDB(db).toSQL();
+        sql += _having[i].toSQL<T>();
       }
     }
 
     // Order by
     if (_orderBy.isNotEmpty) {
-      sql += ' ORDER BY ${_orderBy.map((e) => e.setDB(db).toSQL()).join(', ')}';
+      sql += ' ORDER BY ${_orderBy.map((e) => e.toSQL<T>()).join(', ')}';
     }
 
     // Limit
     if (_limit.limit != null) {
-      sql += _limit.setDB(db).toSQL();
+      sql += _limit.toSQL<T>();
     }
 
     if (_params.isNotEmpty) {
       for (var key in _params.keys) {
-        var value = _params[key]!.setDB(db).toSQL();
+        var value = _params[key]!.toSQL<T>();
         sql = sql.replaceAll('{$key}', value.toString());
       }
     }
@@ -896,9 +889,7 @@ class Sqler extends SQL {
 
 /// Sqliter is a subclass of [Sqler] that serves as a specific implementation
 class Sqliter extends Sqler {
-  Sqliter() : super() {
-    db = DBType.sqlite;
-  }
+  Sqliter() : super();
 }
 
 /// Represents an ORDER BY clause specification with field name and sort direction.
@@ -936,12 +927,12 @@ class QOrder extends SQL {
   ///
   /// Example:
   /// ```dart
-  /// QOrder('name').setDB(db).toSQL(); // "`name` ASC"
-  /// QOrder('created_at', desc: true).setDB(db).toSQL(); // "`created_at` DESC"
+  /// QOrder('name').toSQL(); // "`name` ASC"
+  /// QOrder('created_at', desc: true).toSQL(); // "`created_at` DESC"
   /// ```
   @override
-  String toSQL() {
-    return '${field.setDB(db).toSQL()} ${desc ? 'DESC' : 'ASC'}';
+  String toSQL<T extends SqlType>() {
+    return '${field.toSQL<T>()} ${desc ? 'DESC' : 'ASC'}';
   }
 }
 
@@ -955,7 +946,7 @@ class QOrder extends SQL {
 /// representation of the field.
 abstract class QSelectField extends SQL {
   @override
-  String toSQL();
+  String toSQL<T extends SqlType>();
 }
 
 /// Represents a SELECT * (wildcard) field that selects all columns.
@@ -972,7 +963,7 @@ class QSelectAll extends QSelectField {
 
   /// Returns the SQL wildcard "*" for selecting all columns.
   @override
-  String toSQL() => '*';
+  String toSQL<T extends SqlType>() => '*';
 }
 
 /// Represents a custom SELECT field with optional alias.
@@ -1005,14 +996,14 @@ class QSelectCustom extends QSelectField {
   ///
   /// Example:
   /// ```dart
-  /// QSelectCustom(QSelect('name'), as: 'full_name').setDB(db).toSQL(); // "`name` AS `full_name`"
-  /// QSelectCustom(QMath('COUNT(*)')).setDB(db).toSQL(); // "COUNT(*)"
+  /// QSelectCustom(QSelect('name'), as: 'full_name').toSQL(); // "`name` AS `full_name`"
+  /// QSelectCustom(QMath('COUNT(*)')).toSQL(); // "COUNT(*)"
   /// ```
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     return as.isNotEmpty
-        ? '${field.setDB(db).toSQL()} AS ${QField(as).setDB(db).toSQL()}'
-        : field.setDB(db).toSQL();
+        ? '${field.toSQL<T>()} AS ${QField(as).toSQL<T>()}'
+        : field.toSQL<T>();
   }
 }
 
@@ -1029,10 +1020,10 @@ class QSelectString extends QSelectField {
   ///
   /// Example:
   /// ```dart
-  /// QSelectString('Hello, World!').setDB(db).toSQL(); // "'Hello, World!'"
+  /// QSelectString('Hello, World!').toSQL(); // "'Hello, World!'"
   /// ```
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     return value;
   }
 }
@@ -1061,10 +1052,10 @@ class QMath extends QSelectField {
   ///
   /// Example:
   /// ```dart
-  /// QMath('COUNT(*)').setDB(db).toSQL(); // "COUNT(*)"
+  /// QMath('COUNT(*)').toSQL(); // "COUNT(*)"
   /// ```
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     return math;
   }
 }
@@ -1098,14 +1089,14 @@ class QSelect extends QSelectField {
   ///
   /// Example:
   /// ```dart
-  /// QSelect('name').setDB(db).toSQL(); // "`name`"
-  /// QSelect('email', as: 'user_email').setDB(db).toSQL(); // "`email` AS `user_email`"
+  /// QSelect('name').toSQL(); // "`name`"
+  /// QSelect('email', as: 'user_email').toSQL(); // "`email` AS `user_email`"
   /// ```
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     return as.isNotEmpty
-        ? '${QField(field).setDB(db).toSQL()} AS ${QField(as).setDB(db).toSQL()}'
-        : QField(field).setDB(db).toSQL();
+        ? '${QField(field).toSQL<T>()} AS ${QField(as).toSQL<T>()}'
+        : QField(field).toSQL<T>();
   }
 }
 
@@ -1154,10 +1145,10 @@ abstract class Where extends SQL {
   ///
   /// Returns the combined SQL string for all conditions.
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     var sql = <String>[];
     for (int i = 0; i < _whereBodies.length; i++) {
-      sql.add('( ${_whereBodies[i].setDB(db).toSQL()} )');
+      sql.add('( ${_whereBodies[i].toSQL<T>()} )');
     }
     return sql.join(' AND ');
   }
@@ -1186,11 +1177,11 @@ class WhereOne extends Where {
   ///
   /// Example:
   /// ```dart
-  /// WhereOne(QField('age'), QO.GT, QVar(18)).setDB(db).toSQL(); // "( `age` > 18 )"
+  /// WhereOne(QField('age'), QO.GT, QVar(18)).toSQL(); // "( `age` > 18 )"
   /// ```
   @override
-  String toSQL() {
-    return _whereBodies.first.setDB(db).toSQL();
+  String toSQL<T extends SqlType>() {
+    return _whereBodies.first.toSQL<T>();
   }
 }
 
@@ -1225,10 +1216,10 @@ class OrWhere extends Where {
   /// // Returns: "( condition1 ) OR ( condition2 ) OR ( condition3 )"
   /// ```
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     var sql = <String>[];
     for (int i = 0; i < _whereBodies.length; i++) {
-      sql.add('( ${_whereBodies[i].setDB(db).toSQL()} )');
+      sql.add('( ${_whereBodies[i].toSQL<T>()} )');
     }
     return sql.join(' OR ');
   }
@@ -1266,10 +1257,10 @@ class AndWhere extends Where {
   /// // Returns: "( condition1 ) AND ( condition2 ) AND ( condition3 )"
   /// ```
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     var sql = <String>[];
     for (int i = 0; i < _whereBodies.length; i++) {
-      sql.add('( ${_whereBodies[i].setDB(db).toSQL()} )');
+      sql.add('( ${_whereBodies[i].toSQL<T>()} )');
     }
     return sql.join(' AND ');
   }
@@ -1293,7 +1284,7 @@ class AndWhere extends Where {
 /// var listVar = QVar([1, 2, 3]); // (1, 2, 3)
 /// var nullVar = QVar(null); // NULL
 /// ```
-class QVar<T> extends SQL {
+class QVar extends SQL {
   /// The Dart value to be converted to SQL
   dynamic value;
 
@@ -1308,8 +1299,8 @@ class QVar<T> extends SQL {
   ///
   /// Returns the SQL-safe string representation of the value.
   @override
-  String toSQL() {
-    return _to<T>(value);
+  String toSQL<R extends SqlType>() {
+    return _to<R>(value);
   }
 
   /// Internal method that handles the conversion logic for different data types.
@@ -1322,16 +1313,16 @@ class QVar<T> extends SQL {
   /// - Lists: Comma-separated values in parentheses
   /// - null: "NULL"
   /// - Others: toString() representation
-  String _to<R>(dynamic value) {
+  String _to<R extends SqlType>(dynamic value) {
     if (value is SQL) {
-      return '( ${value.setDB(db).toSQL()} )';
+      return '( ${value.toSQL<R>()} )';
     } else if (value is String) {
       value = QVar.escape(value);
       return "'$value'";
     } else if (value is DateTime) {
-      return QVar.dateTime(value).setDB(db).toSQL();
+      return QVar.dateTime(value).toSQL<R>();
     } else if (value is List) {
-      return '(${value.map((e) => _to(e)).join(', ')})';
+      return '(${value.map((e) => _to<R>(e)).join(', ')})';
     } else if (value == null) {
       return 'NULL';
     }
@@ -1459,7 +1450,7 @@ enum HashType { md5, sha1, sha256, sha512, HMAC }
 /// var endsWith = QVarLike('Doe', left: true, right: false); // '%Doe'
 /// var contains = QVarLike('Smith'); // '%Smith%' (default)
 /// ```
-class QVarLike extends QVar<String> {
+class QVarLike extends QVar {
   /// Whether to add wildcard on the left side
   bool left;
 
@@ -1482,11 +1473,11 @@ class QVarLike extends QVar<String> {
   ///
   /// Example:
   /// ```dart
-  /// QVarLike('John', left: false, right: true).setDB(db).toSQL(); // "'John%'"
-  /// QVarLike('50%', left: true, right: false).setDB(db).toSQL(); // "'%50\\%'"
+  /// QVarLike('John', left: false, right: true).toSQL(); // "'John%'"
+  /// QVarLike('50%', left: true, right: false).toSQL(); // "'%50\\%'"
   /// ```
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     var res = QVar.escape(value).replaceAll('%', '\\%');
 
     if (left) {
@@ -1510,7 +1501,7 @@ class QVarLike extends QVar<String> {
 /// var field2 = QField('users.email'); // `users`.`email`
 /// var field3 = QField('count', as: 'total'); // `count` AS `total`
 /// ```
-class QField extends QVar<String> {
+class QField extends QVar {
   /// Optional alias for the field
   String as;
 
@@ -1532,28 +1523,26 @@ class QField extends QVar<String> {
   ///
   /// Example:
   /// ```dart
-  /// QField('name').setDB(db).toSQL(); // "`name`"
-  /// QField('users.email').setDB(db).toSQL(); // "`users`.`email`"
-  /// QField('count', as: 'total').setDB(db).toSQL(); // "`count` AS `total`"
+  /// QField('name').toSQL(); // "`name`"
+  /// QField('users.email').toSQL(); // "`users`.`email`"
+  /// QField('count', as: 'total').toSQL(); // "`count` AS `total`"
   /// ```
   @override
-  String toSQL() {
-    String q(v) => db == DBType.mysql ? '`$v`' : '"$v"';
-
+  String toSQL<T extends SqlType>() {
     var hasDot = value.contains('.');
     var sql = distinct ? 'DISTINCT ' : '';
     if (hasDot) {
       var parts = value.split('.');
       if (as.isNotEmpty) {
-        return '$sql${parts[0]}.${q(parts[1])} AS ${q(as)}';
+        return '$sql${parts[0]}.${SQL.q<T>(parts[1])} AS ${SQL.q<T>(as)}';
       }
-      return '$sql${parts[0]}.${q(parts[1])}';
+      return '$sql${parts[0]}.${SQL.q<T>(parts[1])}';
     }
 
     if (as.isNotEmpty) {
-      return '$sql${q(value)} AS ${q(as)}';
+      return '$sql${SQL.q<T>(value)} AS ${SQL.q<T>(as)}';
     }
-    return '$sql${q(value)}';
+    return '$sql${SQL.q<T>(value)}';
   }
 
   /// Convenience method to create a field representing an 'id' column.
@@ -1574,7 +1563,7 @@ class QFieldAll extends QField {
   QFieldAll() : super('*');
 
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     return '*';
   }
 }
@@ -1611,29 +1600,29 @@ class QFromQuery extends QField {
   /// // Returns: "(SELECT `user_id` FROM `orders`) AS `order_users`"
   /// ```
   @override
-  String toSQL() {
-    var sql = query.setDB(db).toSQL();
+  String toSQL<T extends SqlType>() {
+    var sql = query.toSQL<T>();
     if (as.isNotEmpty) {
-      return '($sql) AS ${db == DBType.mysql ? '`$as`' : '"$as"'}';
+      return '($sql) AS ${SqlType.isMysql<T>() ? '`$as`' : '"$as"'}';
     }
     return '($sql)';
   }
 }
 
-class QParam extends QVar<String> {
+class QParam extends QVar {
   QParam(String super.param);
 
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     return '{${value.toString()}}';
   }
 }
 
-class QNull extends QVar<String> {
+class QNull extends QVar {
   QNull() : super('NULL');
 
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     return 'NULL';
   }
 }
@@ -1645,8 +1634,8 @@ class CaseCondition extends SQL {
   CaseCondition({required this.when, required this.then});
 
   @override
-  String toSQL() {
-    return 'WHEN ${when.setDB(db).toSQL()} THEN ${then.setDB(db).toSQL()}';
+  String toSQL<T extends SqlType>() {
+    return 'WHEN ${when.toSQL<T>()} THEN ${then.toSQL<T>()}';
   }
 }
 
@@ -1656,8 +1645,8 @@ class SubQuery extends QSelectField {
   SubQuery(this.subQuery);
 
   @override
-  String toSQL() {
-    return '(${subQuery.setDB(db).toSQL()})';
+  String toSQL<T extends SqlType>() {
+    return '(${subQuery.toSQL<T>()})';
   }
 }
 
@@ -1669,18 +1658,17 @@ class Case extends QSelectField {
   Case({required this.conditions, this.as, this.elseValue});
 
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     var sql = 'CASE';
     for (var condition in conditions) {
-      sql +=
-          " ${condition.setDB(db).toSQL()}"; // Add space after each condition
+      sql += " ${condition.toSQL<T>()}"; // Add space after each condition
     }
     if (elseValue != null) {
-      sql += ' ELSE ${elseValue!.setDB(db).toSQL()}';
+      sql += ' ELSE ${elseValue!.toSQL<T>()}';
     }
     sql += ' END';
     if (as != null) {
-      sql += ' AS ${as!.setDB(db).toSQL()}';
+      sql += ' AS ${as!.toSQL<T>()}';
     }
     return sql;
   }
@@ -1704,10 +1692,10 @@ class On extends SQL {
   }
 
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     var sql = <String>[];
     for (int i = 0; i < _onBodies.length; i++) {
-      sql.add('( ${_onBodies[i].setDB(db).toSQL()} )');
+      sql.add('( ${_onBodies[i].toSQL<T>()} )');
     }
     return sql.join(' AND ');
   }
@@ -1725,8 +1713,8 @@ class OnOne extends On {
     : super([Condition(left, operator, right)]);
 
   @override
-  String toSQL() {
-    return _onBodies.first.setDB(db).toSQL();
+  String toSQL<T extends SqlType>() {
+    return _onBodies.first.toSQL<T>();
   }
 }
 
@@ -1740,10 +1728,10 @@ class Having extends SQL {
   }
 
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     var sql = <String>[];
     for (int i = 0; i < _havingBodies.length; i++) {
-      sql.add('( ${_havingBodies[i].setDB(db).toSQL()} )');
+      sql.add('( ${_havingBodies[i].toSQL<T>()} )');
     }
     return sql.join(' AND  ');
   }
@@ -1757,8 +1745,8 @@ class Condition extends SQL {
   Condition(this.left, this.operator, this.right);
 
   @override
-  String toSQL() {
-    return '( ${left.setDB(db).toSQL()} ${operator.setDB(db).toSQL()} ${right.setDB(db).toSQL()} )';
+  String toSQL<T extends SqlType>() {
+    return '( ${left.toSQL<T>()} ${operator.toSQL<T>()} ${right.toSQL<T>()} )';
   }
 }
 
@@ -1768,7 +1756,7 @@ class ConditionString extends Condition {
   ConditionString(this.value) : super(QField(''), QO.EQ, QVar(''));
 
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     return value;
   }
 }
@@ -1786,24 +1774,20 @@ class ConditionString extends Condition {
 /// ```dart
 /// class MyCustomSQL extends SQL {
 ///   @override
-///   String toSQL() => 'CUSTOM SQL HERE';
+///   String toSQL<T extends SqlType>() => 'CUSTOM SQL HERE';
 /// }
 /// ```
 abstract class SQL {
-  DBType db = DBType.mysql;
-
-  SQL setDB(DBType db) {
-    this.db = db;
-    return this;
-  }
-
   /// Converts this SQL component to its string representation.
   ///
   /// Every implementation must provide this method to generate the
   /// appropriate SQL syntax for the component.
   ///
   /// Returns the SQL string for this component.
-  String toSQL();
+  String toSQL<T extends SqlType>();
+
+  static String q<T extends SqlType>(v) =>
+      SqlType.isMysql<T>() ? '`$v`' : '"$v"';
 
   /// Creates a COUNT aggregate function with optional alias.
   ///
@@ -1816,50 +1800,50 @@ abstract class SQL {
   /// var count1 = SQL.count(QField('id')); // COUNT(`id`)
   /// var count2 = SQL.count(QField('id', as: 'total')); // COUNT(`id`) AS `total`
   /// ```
-  static QSelectField count(QField alias) {
-    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL()}' : '';
+  static QSelectField count<T extends SqlType>(QField alias) {
+    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL<T>()}' : '';
 
-    String field = QField(alias.value, distinct: alias.distinct).toSQL();
+    String field = QField(alias.value, distinct: alias.distinct).toSQL<T>();
     return QMath('COUNT($field)$as');
   }
 
   /// Creates a SUM aggregate function with optional alias.
   /// [alias] A QField that specifies the field to sum and optional alias.
   /// Returns a QSelectField representing the SUM function.
-  static QSelectField max(QField alias) {
-    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL()}' : '';
+  static QSelectField max<T extends SqlType>(QField alias) {
+    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL<T>()}' : '';
 
-    String field = QField(alias.value, distinct: alias.distinct).toSQL();
+    String field = QField(alias.value, distinct: alias.distinct).toSQL<T>();
     return QMath('MAX($field)$as');
   }
 
   /// Creates a MIN aggregate function with optional alias.
   /// [alias] A QField that specifies the field to min and optional alias.
   /// Returns a QSelectField representing the MIN function.
-  static QSelectField min(QField alias) {
-    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL()}' : '';
+  static QSelectField min<T extends SqlType>(QField alias) {
+    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL<T>()}' : '';
 
-    String field = QField(alias.value, distinct: alias.distinct).toSQL();
+    String field = QField(alias.value, distinct: alias.distinct).toSQL<T>();
     return QMath('MIN($field)$as');
   }
 
   /// Creates a SUM aggregate function with optional alias.
   /// [alias] A QField that specifies the field to sum and optional alias.
   /// Returns a QSelectField representing the SUM function.
-  static QSelectField sum(QField alias) {
-    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL()}' : '';
+  static QSelectField sum<T extends SqlType>(QField alias) {
+    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL<T>()}' : '';
 
-    String field = QField(alias.value, distinct: alias.distinct).toSQL();
+    String field = QField(alias.value, distinct: alias.distinct).toSQL<T>();
     return QMath('SUM($field)$as');
   }
 
   /// Creates an AVG aggregate function with optional alias.
   /// [alias] A QField that specifies the field to average and optional alias.
   /// Returns a QSelectField representing the AVG function.
-  static QSelectField avg(QField alias) {
-    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL()}' : '';
+  static QSelectField avg<T extends SqlType>(QField alias) {
+    String as = alias.as.isNotEmpty ? ' AS ${QField(alias.as).toSQL<T>()}' : '';
 
-    String field = QField(alias.value, distinct: alias.distinct).toSQL();
+    String field = QField(alias.value, distinct: alias.distinct).toSQL<T>();
     return QMath('AVG($field)$as');
   }
 
@@ -1901,10 +1885,10 @@ abstract class WhereBody extends SQL {
   ///
   /// Returns the combined SQL string.
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     var res = [];
     for (var condition in conditions) {
-      res.add(condition.setDB(db).toSQL());
+      res.add(condition.toSQL<T>());
     }
     return res.join('  ${type == WhereType.AND ? 'AND' : 'OR'} ');
   }
@@ -2002,12 +1986,12 @@ enum QO implements SQL {
   ///
   /// Example:
   /// ```dart
-  /// QO.EQ.setDB(db).toSQL(); // "="
-  /// QO.LIKE.setDB(db).toSQL(); // "LIKE"
-  /// QO.IS_NULL.setDB(db).toSQL(); // "IS NULL"
+  /// QO.EQ.toSQL(); // "="
+  /// QO.LIKE.toSQL(); // "LIKE"
+  /// QO.IS_NULL.toSQL(); // "IS NULL"
   /// ```
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     switch (this) {
       case QO.EQ:
         return '=';
@@ -2041,17 +2025,6 @@ enum QO implements SQL {
         return 'EXISTS';
     }
   }
-
-  @override
-  DBType get db => DBType.mysql;
-
-  @override
-  SQL setDB(DBType db) {
-    return this;
-  }
-
-  @override
-  set db(DBType _) {}
 }
 
 class And extends WhereBody {
@@ -2069,7 +2042,7 @@ class Limit extends SQL {
   Limit([this.offset, this.limit]);
 
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     if (limit == null && offset == null) {
       return '';
     }
@@ -2093,12 +2066,12 @@ class Join extends SQL {
   }
 
   @override
-  String toSQL() {
-    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).setDB(db).toSQL()}' : '';
+  String toSQL<T extends SqlType>() {
+    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).toSQL<T>()}' : '';
     if (on._onBodies.isNotEmpty) {
-      return 'JOIN ${QField(table).setDB(db).toSQL()}$sqlAs ON ${on.setDB(db).toSQL()}';
+      return 'JOIN ${QField(table).toSQL<T>()}$sqlAs ON ${on.toSQL<T>()}';
     }
-    return 'JOIN ${QField(table).setDB(db).toSQL()}$sqlAs';
+    return 'JOIN ${QField(table).toSQL<T>()}$sqlAs';
   }
 }
 
@@ -2106,12 +2079,12 @@ class LeftJoin extends Join {
   LeftJoin(super.table, super.on, {super.as = ''});
 
   @override
-  String toSQL() {
-    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).setDB(db).toSQL()}' : '';
+  String toSQL<T extends SqlType>() {
+    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).toSQL<T>()}' : '';
     if (on._onBodies.isNotEmpty) {
-      return 'LEFT JOIN ${QField(table).setDB(db).toSQL()}$sqlAs ON ${on.setDB(db).toSQL()}';
+      return 'LEFT JOIN ${QField(table).toSQL<T>()}$sqlAs ON ${on.toSQL<T>()}';
     }
-    return 'LEFT JOIN ${QField(table).setDB(db).toSQL()}$sqlAs';
+    return 'LEFT JOIN ${QField(table).toSQL<T>()}$sqlAs';
   }
 }
 
@@ -2119,12 +2092,12 @@ class RightJoin extends Join {
   RightJoin(super.table, super.on, {super.as = ''});
 
   @override
-  String toSQL() {
-    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).setDB(db).toSQL()}' : '';
+  String toSQL<T extends SqlType>() {
+    var sqlAs = as.isNotEmpty ? ' AS ${QField(as).toSQL<T>()}' : '';
     if (on._onBodies.isNotEmpty) {
-      return 'RIGHT JOIN ${QField(table).setDB(db).toSQL()}$sqlAs ON ${on.setDB(db).toSQL()}';
+      return 'RIGHT JOIN ${QField(table).toSQL<T>()}$sqlAs ON ${on.toSQL<T>()}';
     }
-    return 'RIGHT JOIN ${QField(table).setDB(db).toSQL()}$sqlAs';
+    return 'RIGHT JOIN ${QField(table).toSQL<T>()}$sqlAs';
   }
 }
 
@@ -2140,12 +2113,12 @@ class Union extends SQL {
   }
 
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     var sql = queries
-        .map((q) => q.setDB(db).toSQL())
+        .map((q) => q.toSQL<T>())
         .join(' UNION ${uniunAll ? 'ALL ' : ''}');
     if (_orderBy.isNotEmpty) {
-      sql += ' ORDER BY ${_orderBy.map((e) => e.setDB(db).toSQL()).join(', ')}';
+      sql += ' ORDER BY ${_orderBy.map((e) => e.toSQL<T>()).join(', ')}';
     }
     return sql;
   }
@@ -2157,14 +2130,30 @@ class Union extends SQL {
 class SqlExplain extends SQL {
   final Sqler query;
 
-  SqlExplain(this.query) {
-    print(db);
-  }
+  SqlExplain(this.query);
 
   @override
-  String toSQL() {
-    return 'EXPLAIN ${query.setDB(db).toSQL()}';
+  String toSQL<T extends SqlType>() {
+    return 'EXPLAIN ${query.toSQL<T>()}';
   }
 }
 
 enum DBType { mysql, sqlite }
+
+abstract class SqlType {
+  static DBType db<R>() {
+    return R == Sqlite ? DBType.sqlite : DBType.mysql;
+  }
+
+  static bool isMysql<T extends SqlType>() {
+    return db<T>() == DBType.mysql;
+  }
+
+  static bool isSqlite<T extends SqlType>() {
+    return db<T>() == DBType.sqlite;
+  }
+}
+
+abstract class Mysql extends SqlType {}
+
+abstract class Sqlite extends SqlType {}

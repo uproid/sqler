@@ -15,7 +15,7 @@ import 'package:sqler/sqler.dart';
 ///     MFieldVarchar(name: 'email', length: 255),
 ///   ],
 /// );
-/// print(table.setDB(db).toSQL()); // Generates CREATE TABLE statement
+/// print(table.toSQL()); // Generates CREATE TABLE statement
 /// ```
 class MTable extends SQL {
   /// The name of the table
@@ -119,7 +119,6 @@ class MTable extends SQL {
         from.isEmpty ? field.name : '$from.${field.name}',
         as: newAlias.isEmpty ? '' : '${newAlias}_${field.name}',
       );
-      select.setDB(db);
       return select;
     }).toList();
   }
@@ -129,12 +128,12 @@ class MTable extends SQL {
   /// Returns a complete MySQL CREATE TABLE statement including all fields,
   /// engine, charset, and collation specifications.
   @override
-  String toSQL() {
-    String sql = 'CREATE TABLE `$name` (';
-    sql += fields.map((field) => field.setDB(db).toSQL()).join(', ');
+  String toSQL<T extends SqlType>() {
+    String sql = 'CREATE TABLE ${SQL.q<T>(name)} (';
+    sql += fields.map((field) => field.toSQL<T>()).join(', ');
     sql += ')';
     sql +=
-        db == DBType.mysql
+        SqlType.isMysql<T>()
             ? ' ENGINE=$engine DEFAULT CHARSET=$charset COLLATE=$collation;'
             : ';';
     return sql;
@@ -157,17 +156,6 @@ class MTable extends SQL {
     }
 
     return results;
-  }
-}
-
-/// SQLite table definition extending [MTable].
-class STable extends MTable {
-  STable({
-    required super.name,
-    required super.fields,
-    super.foreignKeys = const [],
-  }) {
-    db = DBType.sqlite;
   }
 }
 
@@ -251,14 +239,13 @@ abstract class MField extends SQL {
   ///
   /// Example output: "`field_name` INT NOT NULL AUTO_INCREMENT PRIMARY KEY"
   @override
-  String toSQL() {
-    String sql =
-        '${QField(name).setDB(db).toSQL()} ${type.setDB(db).toSQL()}$_options';
+  String toSQL<T extends SqlType>() {
+    String sql = '${QField(name).toSQL<T>()} ${type.toSQL<T>()}$_options';
     if (isPrimaryKey) {
       sql += ' PRIMARY KEY';
     }
     if (isAutoIncrement) {
-      sql += db == DBType.mysql ? ' AUTO_INCREMENT' : ' AUTOINCREMENT';
+      sql += SqlType.isMysql<T>() ? ' AUTO_INCREMENT' : ' AUTOINCREMENT';
     }
     if (!isNullable) {
       sql += ' NOT NULL';
@@ -300,9 +287,9 @@ class MFieldInt extends MField {
   }) : super(type: FieldTypes.INT);
 
   @override
-  String toSQL() {
-    type = db == DBType.mysql ? FieldTypes.INT : FieldTypes.INTEGER;
-    return super.toSQL();
+  String toSQL<T extends SqlType>() {
+    type = SqlType.isMysql<T>() ? FieldTypes.INT : FieldTypes.INTEGER;
+    return super.toSQL<T>();
   }
 }
 
@@ -948,18 +935,7 @@ enum FieldTypes implements SQL {
 
   /// Returns the SQL representation of this field type
   @override
-  String toSQL() => sqlType;
-
-  @override
-  DBType get db => DBType.mysql;
-
-  @override
-  SQL setDB(DBType db) {
-    return this;
-  }
-
-  @override
-  set db(DBType _) {}
+  String toSQL<T extends SqlType>() => sqlType;
 }
 
 /// Represents a foreign key constraint in MySQL.
@@ -1014,7 +990,7 @@ class ForeignKey extends SQL {
   ///
   /// Returns a complete MySQL foreign key constraint statement.
   @override
-  String toSQL() {
+  String toSQL<T extends SqlType>() {
     return 'FOREIGN KEY (`$name`) REFERENCES `$refTable`(`$refColumn`) ON DELETE $onDelete ON UPDATE $onUpdate';
   }
 }

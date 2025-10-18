@@ -6,10 +6,6 @@ main() async {
   var conn = sqlite3.open('./test_db.sqlite');
 
   Future<SqliteResult> execute(String sql) async {
-    print("-----------------");
-    print(sql);
-    print("-----------------");
-
     try {
       var resultSet = conn.select(sql);
       return SqliteResult(resultSet);
@@ -21,7 +17,7 @@ main() async {
 
   conn.select('DROP TABLE IF EXISTS books');
   conn.select('DROP TABLE IF EXISTS categories');
-  var books = STable(
+  var books = MTable(
     name: 'books',
     fields: [
       MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
@@ -35,7 +31,7 @@ main() async {
     ],
   );
 
-  var categoriesTable = STable(
+  var categoriesTable = MTable(
     name: 'categories',
     fields: [
       MFieldInt(
@@ -47,7 +43,7 @@ main() async {
       MFieldText(name: 'title', isNullable: false),
     ],
   );
-  await execute(books.toSQL());
+  await execute(books.toSQL<Sqlite>());
 
   group('Test on Mysql connection', () {
     test('Insert a book', () async {
@@ -61,7 +57,7 @@ main() async {
           'password': QVar.password('test'),
         },
       ]);
-      var result = await execute(query.toSQL());
+      var result = await execute(query.toSQL<Sqlite>());
       // expect(result.affectedRows, BigInt.from(1));
       // expect(result.insertId, greaterThan(BigInt.zero));
       expect(result.errorMsg, isEmpty);
@@ -72,7 +68,7 @@ main() async {
           Sqliter()
             ..from(books.qName)
             ..selects([QSelectAll()]);
-      var result = await execute(query.toSQL());
+      var result = await execute(query.toSQL<Sqlite>());
 
       expect(result.rows.isNotEmpty, isTrue);
       expect(result.errorMsg, isEmpty);
@@ -89,7 +85,7 @@ main() async {
             ..from(books.qName)
             ..selects([QSelectAll()])
             ..whereOne(QField('id'), QO.EQ, QVar(1));
-      var result = await execute(query.toSQL());
+      var result = await execute(query.toSQL<Sqlite>());
 
       expect(result.rows.isNotEmpty, isTrue);
       expect(result.errorMsg, isEmpty);
@@ -123,7 +119,7 @@ main() async {
           'password': QVar.password('webdart', type: HashType.sha256),
         },
       ]);
-      var result = await execute(query.toSQL());
+      var result = await execute(query.toSQL<Sqlite>());
       // expect(result.affectedRows, BigInt.from(3));
       // expect(result.insertId, greaterThan(BigInt.zero));
       expect(result.errorMsg, isEmpty);
@@ -134,16 +130,24 @@ main() async {
           Sqliter()
             ..from(books.qName)
             ..selects([
-              SQL.sum(QField('publication_year', as: 'sum_publication_year')),
-              SQL.avg(QField('publication_year', as: 'avg_publication_year')),
-              SQL.count(
+              SQL.sum<Sqlite>(
+                QField('publication_year', as: 'sum_publication_year'),
+              ),
+              SQL.avg<Sqlite>(
+                QField('publication_year', as: 'avg_publication_year'),
+              ),
+              SQL.count<Sqlite>(
                 QField('publication_year', as: 'count_books', distinct: true),
               ),
-              SQL.min(QField('publication_year', as: 'min_publication_year')),
-              SQL.max(QField('publication_year', as: 'max_publication_year')),
+              SQL.min<Sqlite>(
+                QField('publication_year', as: 'min_publication_year'),
+              ),
+              SQL.max<Sqlite>(
+                QField('publication_year', as: 'max_publication_year'),
+              ),
             ]);
 
-      var result = await execute(query.toSQL());
+      var result = await execute(query.toSQL<Sqlite>());
       expect(result.rows.isNotEmpty, isTrue);
       expect(result.errorMsg, isEmpty);
       expect(result.assocFirst!['sum_publication_year'], isNotNull);
@@ -162,14 +166,14 @@ main() async {
             ..selects([QSelectAll()])
             ..whereOne(QField('id'), QO.EQ, QVar(1));
       var explainQuery = SqlExplain(bookQuery);
-      var result = await execute(explainQuery.toSQL());
+      var result = await execute(explainQuery.toSQL<Sqlite>());
 
       expect(result.assoc, isList);
       expect(result.errorMsg, isEmpty);
     });
 
     test('Test Join', () async {
-      execute(categoriesTable.toSQL());
+      execute(categoriesTable.toSQL<Sqlite>());
 
       Sqliter insertQuery =
           Sqliter()..insert(categoriesTable.qName, [
@@ -178,7 +182,7 @@ main() async {
             {'title': QVar('Mobile Development')},
           ]);
 
-      execute(insertQuery.toSQL());
+      execute(insertQuery.toSQL<Sqlite>());
 
       Sqliter queryBooks1 =
           Sqliter()
@@ -220,10 +224,10 @@ main() async {
               ),
             );
 
-      var result1 = await execute(queryBooks1.toSQL());
-      var result2 = await execute(queryBooks2.toSQL());
+      var result1 = await execute(queryBooks1.toSQL<Sqlite>());
+      var result2 = await execute(queryBooks2.toSQL<Sqlite>());
 
-      expect(queryBooks1.toSQL(), queryBooks2.toSQL());
+      expect(queryBooks1.toSQL<Sqlite>(), queryBooks2.toSQL<Sqlite>());
       expect(result1.rows.isNotEmpty, isTrue);
       expect(result1.errorMsg, isEmpty);
       expect(result1.assoc.length, 4);
@@ -251,7 +255,7 @@ main() async {
               'category_id': QVar(null),
             });
 
-      var result = await execute(query.toSQL());
+      var result = await execute(query.toSQL<Sqlite>());
       expect(result.rows.isNotEmpty, isTrue);
       expect(result.errorMsg, isEmpty);
     });
@@ -291,7 +295,7 @@ main() async {
         ..orderBy(QOrder('books.id', desc: true))
         ..orderBy(QOrder('books.publication_year', desc: false))
         ..limit(10);
-      var result = await execute(query.toSQL());
+      var result = await execute(query.toSQL<Sqlite>());
       expect(result.rows.length, 4);
       expect(
         result.cols.length,
