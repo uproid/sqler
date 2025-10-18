@@ -1431,7 +1431,14 @@ class QVar extends SQL {
 
 /// Enum representing different hash types for password hashing.
 /// This enum is used to specify the hashing algorithm when creating
-enum HashType { md5, sha1, sha256, sha512, HMAC }
+enum HashType {
+  md5,
+  sha1,
+  sha256,
+  sha512,
+  // ignore: constant_identifier_names
+  HMAC,
+}
 
 /// Represents a LIKE pattern value with configurable wildcard placement.
 ///
@@ -1781,7 +1788,9 @@ abstract class SQL {
   /// Returns the SQL string for this component.
   String toSQL<T extends SqlType>();
 
-  static String q<T extends SqlType>(v) =>
+  /// Quotes a database identifier (field or table name) based on the SQL dialect.
+  /// Qutation marks differ between MySQL (backticks) and other databases (double quotes).
+  static String q<T extends SqlType>(String v) =>
       SqlType.isMysql<T>() ? '`$v`' : '"$v"';
 
   /// Creates a COUNT aggregate function with optional alias.
