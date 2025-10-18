@@ -1,6 +1,6 @@
 # Sqler
 
-A powerful and flexible SQL query builder for Dart, focusing on MySQL support with a fluent interface design.
+A powerful and flexible SQL query builder for Dart, focusing on MySQL & SQLite3 support with a fluent interface design.
 
 [![Pub Version](https://img.shields.io/pub/v/sqler)](https://pub.dev/packages/sqler)
 [![Dev](https://img.shields.io/pub/v/sqler.svg?label=dev&include_prereleases)](https://pub.dev/packages/sqler)
@@ -21,6 +21,7 @@ A powerful and flexible SQL query builder for Dart, focusing on MySQL support wi
 - **Proper Escaping**: Automatic field quoting and value escaping
 - **Complex Operations**: Subqueries, CASE statements, aggregate functions
 - **MySQL Optimized**: Specifically designed for MySQL syntax and features
+- **SQLite Optimized**: Specifically designed for SQLite syntax and features
 
 ## Installation
 
@@ -71,8 +72,21 @@ void main() {
     .limit(10);
 
   print(query.toSQL());
+
+  /// Print for SQLite:
+  print(query.toSQL<Sqlite>());
 }
 ```
+
+## SQLite
+
+To generate a SQL query specifically in SQLite format, pass Sqlite as a type parameter to the toSQL function:
+
+```dart
+query.toSQL<Sqlite>()
+```
+
+This ensures that the SQL syntax produced is compatible with SQLite.
 
 ## Core Classes
 
