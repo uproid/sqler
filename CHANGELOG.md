@@ -1,5 +1,5 @@
 ## 1.2.0
-#### `Sqler().toSQL<Sqlite>()`
+- #### `Sqler().toSQL<Sqlite>()`
 - **BREAKING CHANGE**: Renamed `mysql_query.dart` to `sql_query.dart` and `mysql_model.dart` to `sql_model.dart` for better generic SQL support
 - **NEW**: Added SQLite support alongside existing MySQL functionality
 - **NEW**: Introduced generic SQL types (`Mysql` and `Sqlite`) for database-specific SQL generation
