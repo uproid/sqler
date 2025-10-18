@@ -1,3 +1,18 @@
+## 1.2.0
+#### `Sqler().toSQL<Sqlite>()`
+- **BREAKING CHANGE**: Renamed `mysql_query.dart` to `sql_query.dart` and `mysql_model.dart` to `sql_model.dart` for better generic SQL support
+- **NEW**: Added SQLite support alongside existing MySQL functionality
+- **NEW**: Introduced generic SQL types (`Mysql` and `Sqlite`) for database-specific SQL generation
+- **NEW**: All `toSQL()` methods now accept a generic type parameter to generate database-specific SQL
+- **NEW**: Added SQLite-specific field types (`INTEGER`, `REAL`) in `FieldTypes` enum
+- **NEW**: Proper quotation handling - backticks for MySQL, double quotes for SQLite
+- **NEW**: SQLite-compatible auto-increment syntax (`AUTOINCREMENT` vs `AUTO_INCREMENT`)
+- **NEW**: Added `sqlite3` dependency for SQLite testing support
+- **IMPROVED**: Updated all test cases to validate both MySQL and SQLite SQL generation
+- **IMPROVED**: Enhanced `MFieldInt` to automatically use correct integer type based on target database
+- **IMPROVED**: Modified all SQL component classes to extend `SQL` instead of implementing it
+- **IMPROVED**: Better abstraction for cross-database compatibility while maintaining existing API
+
 ## 1.1.4
 
 - Added `add()` and `clear()` methods to the `Where` class.

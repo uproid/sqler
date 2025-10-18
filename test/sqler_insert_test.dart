@@ -19,6 +19,11 @@ void main() {
         query.toSQL(),
         "INSERT INTO `books` (`title`, `author`, `published_date`, `published`, `pages`) VALUES ('Dart Programming', 'John Doe', '2023-10-01', true, 300)",
       );
+      expect(
+        query.toSQL<Sqlite>(),
+        """INSERT INTO "books" ("title", "author", "published_date", "published", "pages") """
+        """VALUES ('Dart Programming', 'John Doe', '2023-10-01', true, 300)""",
+      );
     });
 
     test('test insert many records', () {
@@ -43,6 +48,12 @@ void main() {
       expect(
         query.toSQL(),
         "INSERT INTO `books` (`title`, `author`, `published_date`, `published`, `pages`) VALUES ('Dart Programming', 'John Doe', '2023-10-01', true, 300), ('Flutter Development', 'Jane Smith', '2023-11-01', false, 250)",
+      );
+      expect(
+        query.toSQL<Sqlite>(),
+        """INSERT INTO "books" ("title", "author", "published_date", "published", "pages") """
+        """VALUES ('Dart Programming', 'John Doe', '2023-10-01', true, 300), """
+        """('Flutter Development', 'Jane Smith', '2023-11-01', false, 250)""",
       );
     });
   });

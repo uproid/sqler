@@ -19,17 +19,29 @@ void main() {
         query.toSQL(),
         "SELECT `field` FROM `table` WHERE ( `field` = {123} )",
       );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field" FROM "table" WHERE ( "field" = {123} )""",
+      );
 
       query.addParam('123', QVar(123));
       expect(
         query.toSQL(),
         "SELECT `field` FROM `table` WHERE ( `field` = 123 )",
       );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field" FROM "table" WHERE ( "field" = 123 )""",
+      );
 
       query.addParam('123', QVar('test'));
       expect(
         query.toSQL(),
         "SELECT `field` FROM `table` WHERE ( `field` = 'test' )",
+      );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field" FROM "table" WHERE ( "field" = 'test' )""",
       );
     });
   });

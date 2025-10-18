@@ -11,26 +11,31 @@ void main() {
     test('test variable with number', () {
       var var1 = QVar(123);
       expect(var1.toSQL(), '123');
+      expect(var1.toSQL<Sqlite>(), '123');
     });
 
     test('test variable with float', () {
       var var1 = QVar(123.45);
       expect(var1.toSQL(), '123.45');
+      expect(var1.toSQL<Sqlite>(), '123.45');
     });
 
     test('test variable with boolean - true', () {
       var var1 = QVar(true);
       expect(var1.toSQL(), 'true');
+      expect(var1.toSQL<Sqlite>(), 'true');
     });
 
     test('test variable with boolean - false', () {
       var var1 = QVar(false);
       expect(var1.toSQL(), 'false');
+      expect(var1.toSQL<Sqlite>(), 'false');
     });
 
     test('test variable with null', () {
       var var1 = QVar(null);
       expect(var1.toSQL(), 'NULL');
+      expect(var1.toSQL<Sqlite>(), 'NULL');
     });
 
     test('test variable with date', () {
@@ -40,11 +45,16 @@ void main() {
         var1.toSQL(),
         "'${DateTime.parse('2023-10-01 00:00:00').toIso8601String()}'",
       );
+      expect(
+        var1.toSQL<Sqlite>(),
+        "'${DateTime.parse('2023-10-01 00:00:00').toIso8601String()}'",
+      );
     });
 
     test('test variable with list', () {
       var var1 = QVar(['a', 'b', 'c']);
       expect(var1.toSQL(), "('a', 'b', 'c')");
+      expect(var1.toSQL<Sqlite>(), "('a', 'b', 'c')");
     });
   });
 
@@ -52,31 +62,37 @@ void main() {
     test('test variable with SQL injection attempt', () {
       var var1 = QVar("'; DROP TABLE users; --");
       expect(var1.toSQL(), "'\\'; DROP TABLE users; --'");
+      expect(var1.toSQL<Sqlite>(), "'\\'; DROP TABLE users; --'");
     });
 
     test('test variable with special characters', () {
       var var1 = QVar("O'Reilly");
       expect(var1.toSQL(), "'O\\'Reilly'");
+      expect(var1.toSQL<Sqlite>(), "'O\\'Reilly'");
     });
 
     test('test variable with empty string', () {
       var var1 = QVar('');
       expect(var1.toSQL(), "''");
+      expect(var1.toSQL<Sqlite>(), "''");
     });
 
     test('test variable with special characters in list', () {
       var var1 = QVar(['O\'Reilly', 'test']);
       expect(var1.toSQL(), "('O\\'Reilly', 'test')");
+      expect(var1.toSQL<Sqlite>(), "('O\\'Reilly', 'test')");
     });
 
     test('test variable with empty string', () {
       var var1 = QVar(';');
       expect(var1.toSQL(), "';'");
+      expect(var1.toSQL<Sqlite>(), "';'");
     });
 
     test('test variable with unicode characters', () {
       var var1 = QVar('-- '); // "Hello" in Japanese
       expect(var1.toSQL(), "'-- '");
+      expect(var1.toSQL<Sqlite>(), "'-- '");
     });
   });
 
@@ -84,11 +100,16 @@ void main() {
     test('test password with md5', () {
       var var1 = QVar.password('test', type: HashType.md5);
       expect(var1.toSQL(), "'098f6bcd4621d373cade4e832627b4f6'");
+      expect(var1.toSQL<Sqlite>(), "'098f6bcd4621d373cade4e832627b4f6'");
     });
 
     test('test password with sha1', () {
       var var1 = QVar.password('test', type: HashType.sha1);
       expect(var1.toSQL(), "'a94a8fe5ccb19ba61c4c0873d391e987982fbbd3'");
+      expect(
+        var1.toSQL<Sqlite>(),
+        "'a94a8fe5ccb19ba61c4c0873d391e987982fbbd3'",
+      );
     });
 
     test('test password with sha256', () {
@@ -97,12 +118,22 @@ void main() {
         var1.toSQL(),
         "'9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'",
       );
+      expect(
+        var1.toSQL<Sqlite>(),
+        "'9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'",
+      );
     });
 
     test('test password with sha512', () {
       var var1 = QVar.password('test', type: HashType.sha512);
       expect(
         var1.toSQL(),
+        "'ee26b0dd4af7e749aa1a8ee3c10ae9923f618980772"
+        "e473f8819a5d4940e0db27ac185f8a0e1d5f84f88b"
+        "c887fd67b143732c304cc5fa9ad8e6f57f50028a8ff'",
+      );
+      expect(
+        var1.toSQL<Sqlite>(),
         "'ee26b0dd4af7e749aa1a8ee3c10ae9923f618980772"
         "e473f8819a5d4940e0db27ac185f8a0e1d5f84f88b"
         "c887fd67b143732c304cc5fa9ad8e6f57f50028a8ff'",
@@ -117,7 +148,17 @@ void main() {
         "'0329a06b62cd16b33eb6792be8c60b158d89a2ee3a876fce9a881ebb488c0914'",
       );
       expect(
+        var1.toSQL<Sqlite>(),
+        "'0329a06b62cd16b33eb6792be8c60b158d89a2ee3a876fce9a881ebb488c0914'",
+      );
+      expect(
         var2.toSQL() ==
+            "'0329a06b62cd16b33eb6792be8c60b15"
+                "8d89a2ee3a876fce9a881ebb488c0914'",
+        isFalse,
+      );
+      expect(
+        var2.toSQL<Sqlite>() ==
             "'0329a06b62cd16b33eb6792be8c60b15"
                 "8d89a2ee3a876fce9a881ebb488c0914'",
         isFalse,

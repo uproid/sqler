@@ -14,6 +14,10 @@ void main() {
         query.toSQL(),
         "SELECT `field1`, `field2` FROM table.`name` WHERE ( `field1` = 'value' )",
       );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM table."name" WHERE ( "field1" = 'value' )""",
+      );
     });
 
     test('test SQL with conditions AND', () {
@@ -30,6 +34,10 @@ void main() {
         query.toSQL(),
         "SELECT `field1`, `field2` FROM table.`name` WHERE ( ( `field1` = 'value1' ) ) AND ( ( `field2` > 10 ) )",
       );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM table."name" WHERE ( ( "field1" = 'value1' ) ) AND ( ( "field2" > 10 ) )""",
+      );
     });
 
     test('test SQL with conditions OR', () {
@@ -45,6 +53,10 @@ void main() {
       expect(
         query.toSQL(),
         "SELECT `field1`, `field2` FROM table.`name` WHERE ( ( `field1` = 'value1' ) ) OR ( ( `field2` > 10 ) )",
+      );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM table."name" WHERE ( ( "field1" = 'value1' ) ) OR ( ( "field2" > 10 ) )""",
       );
     });
 
@@ -69,6 +81,13 @@ void main() {
         "WHERE ( ( `field1` = 'value1' ) ) "
         "AND "
         "( ( ( `field2` > 10 ) ) OR ( ( `field3` < 5 ) ) )",
+      );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM table."name" """
+        """WHERE ( ( "field1" = 'value1' ) ) """
+        """AND """
+        """( ( ( "field2" > 10 ) ) OR ( ( "field3" < 5 ) ) )""",
       );
     });
 
@@ -95,6 +114,12 @@ void main() {
         "SELECT `field1`, `field2` FROM table.`name` "
         "WHERE ( ( ( `field1` = 'value1' ) ) AND ( ( `field2` > 10 ) ) ) "
         "OR ( ( ( `field2` < 5 ) ) AND ( ( `field3` = 'value3' ) ) )",
+      );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM table."name" """
+        """WHERE ( ( ( "field1" = 'value1' ) ) AND ( ( "field2" > 10 ) ) ) """
+        """OR ( ( ( "field2" < 5 ) ) AND ( ( "field3" = 'value3' ) ) )""",
       );
     });
 
@@ -123,6 +148,13 @@ void main() {
         "JOIN `table2` ON ( ( table1.`field1` = table2.`field1` ) ) "
         "WHERE ( table1.`field2` > 100 )",
       );
+
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM "table1" """
+        """JOIN "table2" ON ( ( table1."field1" = table2."field1" ) ) """
+        """WHERE ( table1."field2" > 100 )""",
+      );
     });
 
     test('test SQL with LEFT JOIN', () {
@@ -149,6 +181,13 @@ void main() {
         "SELECT `field1`, `field2` FROM `table1` "
         "LEFT JOIN `table2` ON ( ( table1.`field1` = table2.`field1` ) ) "
         "WHERE ( table1.`field2` > 100 )",
+      );
+
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM "table1" """
+        """LEFT JOIN "table2" ON ( ( table1."field1" = table2."field1" ) ) """
+        """WHERE ( table1."field2" > 100 )""",
       );
     });
 
@@ -177,6 +216,13 @@ void main() {
         "RIGHT JOIN `table2` ON ( ( table1.`field1` = table2.`field1` ) ) "
         "WHERE ( table1.`field2` > 100 )",
       );
+
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM "table1" """
+        """RIGHT JOIN "table2" ON ( ( table1."field1" = table2."field1" ) ) """
+        """WHERE ( table1."field2" > 100 )""",
+      );
     });
 
     test('test SQL with ORDER BY', () {
@@ -192,6 +238,11 @@ void main() {
         "SELECT `field1`, `field2` FROM table.`name` "
         "ORDER BY `field1` DESC, `field2` ASC",
       );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM table."name" """
+        """ORDER BY "field1" DESC, "field2" ASC""",
+      );
     });
 
     test('test SQL with LIMIT', () {
@@ -205,6 +256,10 @@ void main() {
         query.toSQL(),
         "SELECT `field1`, `field2` FROM table.`name` LIMIT 10",
       );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM table."name" LIMIT 10""",
+      );
     });
 
     test('test SQL with LIMIT and OFFSET', () {
@@ -217,6 +272,10 @@ void main() {
       expect(
         query.toSQL(),
         "SELECT `field1`, `field2` FROM table.`name` LIMIT 10 OFFSET 5",
+      );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM table."name" LIMIT 10 OFFSET 5""",
       );
     });
 
@@ -232,6 +291,11 @@ void main() {
         query.toSQL(),
         "SELECT `field1`, `field2` FROM table.`name` GROUP BY `field1`, `field2` LIMIT 10 OFFSET 5",
       );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM table."name" """
+        """GROUP BY "field1", "field2" LIMIT 10 OFFSET 5""",
+      );
     });
 
     test('test SQL with INSERT', () {
@@ -244,6 +308,11 @@ void main() {
       expect(
         query.toSQL(),
         "INSERT INTO table.`name` (`field1`, `field2`) VALUES ('value1', 100), ('value2', 200)",
+      );
+      expect(
+        query.toSQL<Sqlite>(),
+        """INSERT INTO table."name" ("field1", "field2") """
+        """VALUES ('value1', 100), ('value2', 200)""",
       );
     });
 
@@ -258,6 +327,10 @@ void main() {
         query.toSQL(),
         "UPDATE table.`name` SET `field1` = 'new_value1', `field2` = 200",
       );
+      expect(
+        query.toSQL<Sqlite>(),
+        """UPDATE table."name" SET "field1" = 'new_value1', "field2" = 200""",
+      );
     });
 
     test('test SQL with DELETE', () {
@@ -270,6 +343,10 @@ void main() {
       expect(
         query.toSQL(),
         "DELETE FROM table.`name` WHERE ( `field1` = 'value1' )",
+      );
+      expect(
+        query.toSQL<Sqlite>(),
+        """DELETE FROM table."name" WHERE ( "field1" = 'value1' )""",
       );
     });
 
@@ -309,6 +386,14 @@ void main() {
         "WHERE ( ( table1.`field2` > 100 ) ) "
         "AND ( ( ( table2.`field3` < 50 ) ) OR ( ( table2.`field4` = 'value' ) ) ) "
         "ORDER BY `field1` DESC LIMIT 10",
+      );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM "table1" """
+        """JOIN "table2" ON ( ( table1."field1" = table2."field1" ) ) """
+        """WHERE ( ( table1."field2" > 100 ) ) """
+        """AND ( ( ( table2."field3" < 50 ) ) OR ( ( table2."field4" = 'value' ) ) ) """
+        """ORDER BY "field1" DESC LIMIT 10""",
       );
     });
 
@@ -352,6 +437,16 @@ void main() {
         "ORDER BY `field1` DESC "
         "LIMIT 10",
       );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM "table1" """
+        """JOIN "table2" ON ( ( table1."field1" = table2."field1" ) ) """
+        """WHERE ( ( table1."field2" > 100 ) ) """
+        """AND ( ( ( table2."field3" < 50 ) ) OR ( ( table2."field4" = 'value' ) ) ) """
+        """GROUP BY "field1", "field2" """
+        """ORDER BY "field1" DESC """
+        """LIMIT 10""",
+      );
     });
 
     test('test CASE WHEN', () {
@@ -387,6 +482,16 @@ void main() {
         "ORDER BY `field1` DESC "
         "LIMIT 10",
       );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2", """
+        """CASE WHEN ( "field2" > 100 ) THEN 'High' ELSE 'Low' END AS "field2_status" """
+        """FROM "table1" """
+        """WHERE ( "field1" = 'value1' ) """
+        """GROUP BY "field1", "field2" """
+        """ORDER BY "field1" DESC """
+        """LIMIT 10""",
+      );
     });
 
     test('test SQL with subquery', () {
@@ -406,6 +511,11 @@ void main() {
         query.toSQL(),
         "SELECT `field1`, `field2` FROM `main_table` "
         "WHERE ( `field3` IN (SELECT `field1` FROM `sub_table` WHERE ( `field2` = 'sub_value' )) )",
+      );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM "main_table" """
+        """WHERE ( "field3" IN (SELECT "field1" FROM "sub_table" WHERE ( "field2" = 'sub_value' )) )""",
       );
     });
 
@@ -432,6 +542,13 @@ void main() {
         "SELECT `field1` FROM `table2` WHERE ( `field3` = 'value2' )"
         " ORDER BY `field1` DESC",
       );
+      expect(
+        unionQuery.toSQL<Sqlite>(),
+        """SELECT "field1" FROM "table1" WHERE ( "field2" = 'value1' ) """
+        """UNION """
+        """SELECT "field1" FROM "table2" WHERE ( "field3" = 'value2' )"""
+        """ ORDER BY "field1" DESC""",
+      );
     });
 
     test('test SQL with UNION ALL', () {
@@ -456,6 +573,13 @@ void main() {
         "SELECT `field1` FROM `table2` WHERE ( `field3` = 'value2' )"
         " ORDER BY `field1` ASC",
       );
+      expect(
+        unionQuery.toSQL<Sqlite>(),
+        """SELECT "field1" FROM "table1" WHERE ( "field2" = 'value1' ) """
+        """UNION ALL """
+        """SELECT "field1" FROM "table2" WHERE ( "field3" = 'value2' )"""
+        """ ORDER BY "field1" ASC""",
+      );
     });
 
     test('test SQL from subquery', () {
@@ -475,6 +599,12 @@ void main() {
         "SELECT `field1`, `field2` FROM "
         "(SELECT `field1` FROM `sub_table` WHERE ( `field2` = 'sub_value' )) AS `sub_query` "
         "WHERE ( `field3` = 'value3' )",
+      );
+      expect(
+        query.toSQL<Sqlite>(),
+        """SELECT "field1", "field2" FROM """
+        """(SELECT "field1" FROM "sub_table" WHERE ( "field2" = 'sub_value' )) AS "sub_query" """
+        """WHERE ( "field3" = 'value3' )""",
       );
     });
   });
