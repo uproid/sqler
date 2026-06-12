@@ -2142,11 +2142,13 @@ class SqlExplain extends SQL {
   }
 }
 
-enum DBType { mysql, sqlite }
+enum DBType { mysql, sqlite, postgres }
 
 abstract class SqlType {
   static DBType db<R>() {
-    return R == Sqlite ? DBType.sqlite : DBType.mysql;
+    if (R == Sqlite) return DBType.sqlite;
+    if (R == Postgres) return DBType.postgres;
+    return DBType.mysql;
   }
 
   static bool isMysql<T extends SqlType>() {
@@ -2156,8 +2158,14 @@ abstract class SqlType {
   static bool isSqlite<T extends SqlType>() {
     return db<T>() == DBType.sqlite;
   }
+
+  static bool isPostgres<T extends SqlType>() {
+    return db<T>() == DBType.postgres;
+  }
 }
 
 abstract class Mysql extends SqlType {}
 
 abstract class Sqlite extends SqlType {}
+
+abstract class Postgres extends SqlType {}

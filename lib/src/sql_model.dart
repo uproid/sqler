@@ -244,7 +244,7 @@ abstract class MField extends SQL {
     if (isPrimaryKey) {
       sql += ' PRIMARY KEY';
     }
-    if (isAutoIncrement) {
+    if (isAutoIncrement && !SqlType.isPostgres<T>()) {
       sql += SqlType.isMysql<T>() ? ' AUTO_INCREMENT' : ' AUTOINCREMENT';
     }
     if (!isNullable) {
@@ -264,7 +264,7 @@ abstract class MField extends SQL {
         sql += ' DEFAULT "$defaultValue"';
       }
     }
-    if (comment != null) {
+    if (comment != null && SqlType.isMysql<T>()) {
       sql += ' COMMENT "$comment"';
     }
     return sql;
@@ -288,7 +288,13 @@ class MFieldInt extends MField {
 
   @override
   String toSQL<T extends SqlType>() {
-    type = SqlType.isMysql<T>() ? FieldTypes.INT : FieldTypes.INTEGER;
+    if (SqlType.isPostgres<T>() && isAutoIncrement) {
+      type = FieldTypes.SERIAL;
+    } else if (SqlType.isMysql<T>()) {
+      type = FieldTypes.INT;
+    } else {
+      type = FieldTypes.INTEGER;
+    }
     return super.toSQL<T>();
   }
 }
@@ -958,7 +964,13 @@ enum FieldTypes implements SQL {
   // ignore: constant_identifier_names
   INTEGER('INTEGER'),
   // ignore: constant_identifier_names
-  REAL('REAL');
+  REAL('REAL'),
+
+  /// For PostgreSQL
+  // ignore: constant_identifier_names
+  SERIAL('SERIAL'),
+  // ignore: constant_identifier_names
+  BIGSERIAL('BIGSERIAL');
 
   /// The SQL type name for this field type
   final String sqlType;
