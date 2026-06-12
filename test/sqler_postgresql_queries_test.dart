@@ -277,12 +277,11 @@ main() async {
             ..from(QField('books'));
 
       Sqler query = Sqler();
-      query
-          .selects([
-            ...books.getFieldsAs('books', 'b'),
-            ...categoriesTable.getFieldsAs('cat', 'c'),
-            ...books.getFieldsAs('bv', 'v'),
-          ])
+      query.selects([
+          ...books.getFieldsAs('books', 'b'),
+          ...categoriesTable.getFieldsAs('cat', 'c'),
+          ...books.getFieldsAs('bv', 'v'),
+        ])
         ..from(books.qName)
         ..join(
           categoriesTable.createLeftJoin(
@@ -358,7 +357,11 @@ main() async {
       var query =
           Sqler()
             ..from(books.qName)
-            ..selects([QSelect('id'), QSelect('author'), QSelect('publication_year')])
+            ..selects([
+              QSelect('id'),
+              QSelect('author'),
+              QSelect('publication_year'),
+            ])
             ..whereOr([
               Condition(QField('publication_year'), QO.EQ, QVar(2020)),
               Condition(QField('publication_year'), QO.EQ, QVar(2023)),
@@ -591,9 +594,10 @@ main() async {
     // ── SubQuery / QFromQuery ────────────────────────────────────────────────
 
     test('Test SubQuery in SELECT', () async {
-      var totalCountSub = Sqler()
-        ..selects([SQL.count<Postgres>(QField('id', as: 'cnt'))])
-        ..from(books.qName);
+      var totalCountSub =
+          Sqler()
+            ..selects([SQL.count<Postgres>(QField('id', as: 'cnt'))])
+            ..from(books.qName);
 
       var query =
           Sqler()
@@ -1110,11 +1114,7 @@ main() async {
             ..join(
               LeftJoin(
                 'reviews',
-                OnOne(
-                  QField('reviews.book_id'),
-                  QO.EQ,
-                  QField('lib_books.id'),
-                ),
+                OnOne(QField('reviews.book_id'), QO.EQ, QField('lib_books.id')),
               ),
             )
             ..groupBy(['lib_books.id', 'lib_books.title', 'publishers.name'])
@@ -1240,8 +1240,7 @@ main() async {
 
     // ── SUBQUERY AS FROM SOURCE ────────────────────────────────────────────
 
-    test('QFromQuery + JOIN: books at or above overall average rating',
-        () async {
+    test('QFromQuery + JOIN: books at or above overall average rating', () async {
       // Inner query: compute per-book average rating
       var avgPerBook =
           Sqler()
@@ -1254,19 +1253,12 @@ main() async {
 
       var query =
           Sqler()
-            ..selects([
-              QSelect('lib_books.title'),
-              QSelect('avg_r.avg_rating'),
-            ])
+            ..selects([QSelect('lib_books.title'), QSelect('avg_r.avg_rating')])
             ..from(QFromQuery(avgPerBook, as: 'avg_r'))
             ..join(
               Join(
                 'lib_books',
-                OnOne(
-                  QField('lib_books.id'),
-                  QO.EQ,
-                  QField('avg_r.book_id'),
-                ),
+                OnOne(QField('lib_books.id'), QO.EQ, QField('avg_r.book_id')),
               ),
             )
             ..whereAnd([
@@ -1285,106 +1277,106 @@ main() async {
 
     // ── GROUP BY + HAVING ACROSS JOIN ──────────────────────────────────────
 
-    test('Multi-table aggregation + HAVING: publishers with avg price > 45',
-        () async {
-      var query =
-          Sqler()
-            ..selects([
-              QSelect('publishers.name', as: 'publisher'),
-              SQL.count<Postgres>(QField('lib_books.id', as: 'book_count')),
-              SQL.avg<Postgres>(QField('lib_books.price', as: 'avg_price')),
-            ])
-            ..from(publishers.qName)
-            ..join(
-              Join(
-                'lib_books',
-                OnOne(
-                  QField('lib_books.publisher_id'),
-                  QO.EQ,
-                  QField('publishers.id'),
+    test(
+      'Multi-table aggregation + HAVING: publishers with avg price > 45',
+      () async {
+        var query =
+            Sqler()
+              ..selects([
+                QSelect('publishers.name', as: 'publisher'),
+                SQL.count<Postgres>(QField('lib_books.id', as: 'book_count')),
+                SQL.avg<Postgres>(QField('lib_books.price', as: 'avg_price')),
+              ])
+              ..from(publishers.qName)
+              ..join(
+                Join(
+                  'lib_books',
+                  OnOne(
+                    QField('lib_books.publisher_id'),
+                    QO.EQ,
+                    QField('publishers.id'),
+                  ),
                 ),
-              ),
-            )
-            ..groupBy(['publishers.id', 'publishers.name'])
-            ..having(
-              Having([
-                Condition(
-                  QMath('AVG(lib_books."price")'),
-                  QO.GT,
-                  QVar(45.0),
-                ),
-              ]),
-            )
-            ..orderBy(QOrder('publishers.name'));
+              )
+              ..groupBy(['publishers.id', 'publishers.name'])
+              ..having(
+                Having([
+                  Condition(QMath('AVG(lib_books."price")'), QO.GT, QVar(45.0)),
+                ]),
+              )
+              ..orderBy(QOrder('publishers.name'));
 
-      var result = await execute(query.toSQL<Postgres>());
-      expect(result.errorMsg, isEmpty);
-      // OReilly avg=55.32 ✓  Packt avg=59.99 ✓
-      // Manning avg=37.49 ✗  Apress avg=44.99 ✗
-      expect(result.rows.length, 2);
-      expect(result.assoc[0]['publisher'], 'OReilly');
-      expect(result.assoc[1]['publisher'], 'Packt');
-    });
+        var result = await execute(query.toSQL<Postgres>());
+        expect(result.errorMsg, isEmpty);
+        // OReilly avg=55.32 ✓  Packt avg=59.99 ✓
+        // Manning avg=37.49 ✗  Apress avg=44.99 ✗
+        expect(result.rows.length, 2);
+        expect(result.assoc[0]['publisher'], 'OReilly');
+        expect(result.assoc[1]['publisher'], 'Packt');
+      },
+    );
 
     // ── MANY-TO-MANY AGGREGATION ───────────────────────────────────────────
 
-    test('Authors with 2+ books via many-to-many (HAVING COUNT DISTINCT)',
-        () async {
-      var query =
-          Sqler()
-            ..selects([
-              QSelect('lib_authors.id'),
-              QSelect('lib_authors.first_name'),
-              QSelect('lib_authors.last_name'),
-              SQL.count<Postgres>(
-                QField('lib_books.id', as: 'book_count', distinct: true),
-              ),
-            ])
-            ..from(libAuthors.qName)
-            ..join(
-              Join(
-                'book_authors',
-                OnOne(
-                  QField('book_authors.author_id'),
-                  QO.EQ,
-                  QField('lib_authors.id'),
+    test(
+      'Authors with 2+ books via many-to-many (HAVING COUNT DISTINCT)',
+      () async {
+        var query =
+            Sqler()
+              ..selects([
+                QSelect('lib_authors.id'),
+                QSelect('lib_authors.first_name'),
+                QSelect('lib_authors.last_name'),
+                SQL.count<Postgres>(
+                  QField('lib_books.id', as: 'book_count', distinct: true),
                 ),
-              ),
-            )
-            ..join(
-              Join(
-                'lib_books',
-                OnOne(
-                  QField('lib_books.id'),
-                  QO.EQ,
-                  QField('book_authors.book_id'),
+              ])
+              ..from(libAuthors.qName)
+              ..join(
+                Join(
+                  'book_authors',
+                  OnOne(
+                    QField('book_authors.author_id'),
+                    QO.EQ,
+                    QField('lib_authors.id'),
+                  ),
                 ),
-              ),
-            )
-            ..groupBy([
-              'lib_authors.id',
-              'lib_authors.first_name',
-              'lib_authors.last_name',
-            ])
-            ..having(
-              Having([
-                Condition(
-                  QMath('COUNT(DISTINCT lib_books."id")'),
-                  QO.GTE,
-                  QVar(2),
+              )
+              ..join(
+                Join(
+                  'lib_books',
+                  OnOne(
+                    QField('lib_books.id'),
+                    QO.EQ,
+                    QField('book_authors.book_id'),
+                  ),
                 ),
-              ]),
-            )
-            ..orderBy(QOrder('lib_authors.id'));
+              )
+              ..groupBy([
+                'lib_authors.id',
+                'lib_authors.first_name',
+                'lib_authors.last_name',
+              ])
+              ..having(
+                Having([
+                  Condition(
+                    QMath('COUNT(DISTINCT lib_books."id")'),
+                    QO.GTE,
+                    QVar(2),
+                  ),
+                ]),
+              )
+              ..orderBy(QOrder('lib_authors.id'));
 
-      var result = await execute(query.toSQL<Postgres>());
-      expect(result.errorMsg, isEmpty);
-      // John Smith=3 ✓, Jane Doe=2 ✓, Robert Chen=3 ✓, Takeshi Nakamura=2 ✓
-      // Maria Garcia=1 ✗
-      expect(result.rows.length, 4);
-      expect(result.assocFirst!['first_name'], 'John');
-      expect(result.assocLast!['first_name'], 'Takeshi');
-    });
+        var result = await execute(query.toSQL<Postgres>());
+        expect(result.errorMsg, isEmpty);
+        // John Smith=3 ✓, Jane Doe=2 ✓, Robert Chen=3 ✓, Takeshi Nakamura=2 ✓
+        // Maria Garcia=1 ✗
+        expect(result.rows.length, 4);
+        expect(result.assocFirst!['first_name'], 'John');
+        expect(result.assocLast!['first_name'], 'Takeshi');
+      },
+    );
 
     // ── CASE EXPRESSION + JOIN ─────────────────────────────────────────────
 
@@ -1439,79 +1431,77 @@ main() async {
         3,
       );
       // Premium (else, price > 55.0): books 8(55.99), 4(59.99), 6(64.99) → 3
-      expect(
-        result.assoc.where((r) => r['price_tier'] == 'Premium').length,
-        3,
-      );
+      expect(result.assoc.where((r) => r['price_tier'] == 'Premium').length, 3);
     });
 
     // ── MULTI-CONDITION FILTERING ──────────────────────────────────────────
 
     test(
-        'Complex WHERE + INNER JOIN + HAVING: in-stock books in price range with 2+ reviews',
-        () async {
-      var query =
-          Sqler()
-            ..selects([
-              QSelect('lib_books.title'),
-              QSelect('lib_books.price'),
-              QSelect('publishers.name', as: 'publisher'),
-              SQL.count<Postgres>(QField('reviews.id', as: 'review_count')),
-            ])
-            ..from(libBooks.qName)
-            ..join(
-              Join(
-                'publishers',
-                OnOne(
-                  QField('lib_books.publisher_id'),
-                  QO.EQ,
-                  QField('publishers.id'),
+      'Complex WHERE + INNER JOIN + HAVING: in-stock books in price range with 2+ reviews',
+      () async {
+        var query =
+            Sqler()
+              ..selects([
+                QSelect('lib_books.title'),
+                QSelect('lib_books.price'),
+                QSelect('publishers.name', as: 'publisher'),
+                SQL.count<Postgres>(QField('reviews.id', as: 'review_count')),
+              ])
+              ..from(libBooks.qName)
+              ..join(
+                Join(
+                  'publishers',
+                  OnOne(
+                    QField('lib_books.publisher_id'),
+                    QO.EQ,
+                    QField('publishers.id'),
+                  ),
                 ),
-              ),
-            )
-            ..join(
-              // INNER JOIN: only books that have at least one review survive
-              Join(
-                'reviews',
-                OnOne(
-                  QField('reviews.book_id'),
-                  QO.EQ,
-                  QField('lib_books.id'),
+              )
+              ..join(
+                // INNER JOIN: only books that have at least one review survive
+                Join(
+                  'reviews',
+                  OnOne(
+                    QField('reviews.book_id'),
+                    QO.EQ,
+                    QField('lib_books.id'),
+                  ),
                 ),
-              ),
-            )
-            ..whereAnd([
-              Condition(QField('lib_books.in_stock'), QO.EQ, QVar(true)),
-              Condition(
-                QField('lib_books.price'),
-                QO.BETWEEN,
-                QMath('40.0 AND 65.0'),
-              ),
-              Condition(
-                QField('publishers.country'),
-                QO.IN,
-                QVar(['USA', 'UK']),
-              ),
-            ])
-            ..groupBy([
-              'lib_books.id',
-              'lib_books.title',
-              'lib_books.price',
-              'publishers.name',
-            ])
-            ..having(
-              Having([
-                Condition(QMath('COUNT(reviews."id")'), QO.GT, QVar(1)),
-              ]),
-            )
-            ..orderBy(QOrder('lib_books.price'));
+              )
+              ..whereAnd([
+                Condition(QField('lib_books.in_stock'), QO.EQ, QVar(true)),
+                Condition(
+                  QField('lib_books.price'),
+                  QO.BETWEEN,
+                  QMath('40.0 AND 65.0'),
+                ),
+                Condition(
+                  QField('publishers.country'),
+                  QO.IN,
+                  QVar(['USA', 'UK']),
+                ),
+              ])
+              ..groupBy([
+                'lib_books.id',
+                'lib_books.title',
+                'lib_books.price',
+                'publishers.name',
+              ])
+              ..having(
+                Having([
+                  Condition(QMath('COUNT(reviews."id")'), QO.GT, QVar(1)),
+                ]),
+              )
+              ..orderBy(QOrder('lib_books.price'));
 
-      var result = await execute(query.toSQL<Postgres>());
-      expect(result.errorMsg, isEmpty);
-      // in_stock + price 40–65 + USA/UK: books 1,2,4,6,8
-      // HAVING COUNT > 1: books 1(3), 2(2), 4(3), 8(2) qualify; book 6(1 review) excluded
-      expect(result.rows.length, 4);
-    });
+        var result = await execute(query.toSQL<Postgres>());
+        expect(result.errorMsg, isEmpty);
+        // in_stock + price 40–65 + USA/UK: books 1,2,4,6,8
+        // HAVING COUNT > 1: books 1(3), 2(2), 4(3), 8(2) qualify; book 6(1 review) excluded
+        expect(result.rows.length, 4);
+      },
+    );
 
     // ── UNION ──────────────────────────────────────────────────────────────
 
@@ -1557,21 +1547,13 @@ main() async {
             ..join(
               Join(
                 'reviews',
-                OnOne(
-                  QField('reviews.book_id'),
-                  QO.EQ,
-                  QField('lib_books.id'),
-                ),
+                OnOne(QField('reviews.book_id'), QO.EQ, QField('lib_books.id')),
               ),
             )
             ..groupBy(['lib_books.id', 'lib_books.title', 'publishers.name'])
             ..having(
               Having([
-                Condition(
-                  QMath('AVG(reviews."rating")'),
-                  QO.GTE,
-                  QVar(4.5),
-                ),
+                Condition(QMath('AVG(reviews."rating")'), QO.GTE, QVar(4.5)),
               ]),
             );
 
@@ -1587,80 +1569,84 @@ main() async {
     // ── 4-TABLE JOIN WITH SUBQUERY JOINS ──────────────────────────────────
 
     test(
-        '4-table JOIN: books with publisher, author count, and review count',
-        () async {
-      // lib_books JOIN publishers LEFT JOIN book_authors LEFT JOIN reviews
-      // COUNT(DISTINCT ...) corrects for cartesian product when both JOINs
-      // expand rows (e.g. 2 authors × 2 reviews = 4 rows per book).
-      var query =
-          Sqler()
-            ..selects([
-              QSelect('lib_books.title'),
-              QSelect('publishers.name', as: 'publisher'),
-              SQL.count<Postgres>(
-                QField('book_authors.author_id',
-                    as: 'author_count', distinct: true),
-              ),
-              SQL.count<Postgres>(
-                QField('reviews.id', as: 'review_count', distinct: true),
-              ),
-            ])
-            ..from(libBooks.qName)
-            ..join(
-              Join(
-                'publishers',
-                OnOne(
-                  QField('lib_books.publisher_id'),
-                  QO.EQ,
-                  QField('publishers.id'),
+      '4-table JOIN: books with publisher, author count, and review count',
+      () async {
+        // lib_books JOIN publishers LEFT JOIN book_authors LEFT JOIN reviews
+        // COUNT(DISTINCT ...) corrects for cartesian product when both JOINs
+        // expand rows (e.g. 2 authors × 2 reviews = 4 rows per book).
+        var query =
+            Sqler()
+              ..selects([
+                QSelect('lib_books.title'),
+                QSelect('publishers.name', as: 'publisher'),
+                SQL.count<Postgres>(
+                  QField(
+                    'book_authors.author_id',
+                    as: 'author_count',
+                    distinct: true,
+                  ),
                 ),
-              ),
-            )
-            ..join(
-              LeftJoin(
-                'book_authors',
-                OnOne(
-                  QField('book_authors.book_id'),
-                  QO.EQ,
-                  QField('lib_books.id'),
+                SQL.count<Postgres>(
+                  QField('reviews.id', as: 'review_count', distinct: true),
                 ),
-              ),
-            )
-            ..join(
-              LeftJoin(
-                'reviews',
-                OnOne(
-                  QField('reviews.book_id'),
-                  QO.EQ,
-                  QField('lib_books.id'),
+              ])
+              ..from(libBooks.qName)
+              ..join(
+                Join(
+                  'publishers',
+                  OnOne(
+                    QField('lib_books.publisher_id'),
+                    QO.EQ,
+                    QField('publishers.id'),
+                  ),
                 ),
-              ),
-            )
-            ..groupBy(['lib_books.id', 'lib_books.title', 'publishers.name'])
-            ..orderBy(QOrder('lib_books.id'));
+              )
+              ..join(
+                LeftJoin(
+                  'book_authors',
+                  OnOne(
+                    QField('book_authors.book_id'),
+                    QO.EQ,
+                    QField('lib_books.id'),
+                  ),
+                ),
+              )
+              ..join(
+                LeftJoin(
+                  'reviews',
+                  OnOne(
+                    QField('reviews.book_id'),
+                    QO.EQ,
+                    QField('lib_books.id'),
+                  ),
+                ),
+              )
+              ..groupBy(['lib_books.id', 'lib_books.title', 'publishers.name'])
+              ..orderBy(QOrder('lib_books.id'));
 
-      var result = await execute(query.toSQL<Postgres>());
-      expect(result.errorMsg, isEmpty);
-      expect(result.rows.length, 8);
-      // Dart in Depth: 1 author, 3 reviews
-      final dartBook = result.assoc.firstWhere(
-        (r) => r['title'] == 'Dart in Depth',
-      );
-      expect(dartBook['author_count'], '1');
-      expect(dartBook['review_count'], '3');
-      // Flutter Complete Guide: 2 authors, 2 reviews
-      final flutterBook = result.assoc.firstWhere(
-        (r) => r['title'] == 'Flutter Complete Guide',
-      );
-      expect(flutterBook['author_count'], '2');
-      expect(flutterBook['review_count'], '2');
-      // Business Analytics: 1 author, 0 reviews (COUNT of NULLs = 0)
-      final bizBook = result.assoc.firstWhere(
-        (r) => r['title'] == 'Business Analytics',
-      );
-      expect(bizBook['author_count'], '1');
-      expect(bizBook['review_count'], '0');
-    });
+        var result = await execute(query.toSQL<Postgres>());
+        expect(result.errorMsg, isEmpty);
+        expect(result.rows.length, 8);
+        // Dart in Depth: 1 author, 3 reviews
+        final dartBook = result.assoc.firstWhere(
+          (r) => r['title'] == 'Dart in Depth',
+        );
+        expect(dartBook['author_count'], '1');
+        expect(dartBook['review_count'], '3');
+        // Flutter Complete Guide: 2 authors, 2 reviews
+        final flutterBook = result.assoc.firstWhere(
+          (r) => r['title'] == 'Flutter Complete Guide',
+        );
+        expect(flutterBook['author_count'], '2');
+        expect(flutterBook['review_count'], '2');
+        // Business Analytics: 1 author, 0 reviews (COUNT of NULLs = 0)
+        final bizBook = result.assoc.firstWhere(
+          (r) => r['title'] == 'Business Analytics',
+        );
+        expect(bizBook['author_count'], '1');
+        expect(bizBook['review_count'], '0');
+      },
+    );
   });
 }
 
