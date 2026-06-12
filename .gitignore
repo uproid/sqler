@@ -7,3 +7,5 @@
 pubspec.lock
 .vscode/
 test_db.sqlite
+postgres_data/
+mysql_data/

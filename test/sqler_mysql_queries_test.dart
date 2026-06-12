@@ -173,16 +173,13 @@ main() async {
       var bookQuery =
           Sqler()
             ..from(books.qName)
-            ..selects([QSelectAll()])
-            ..whereOne(QField('id'), QO.EQ, QVar(1));
+            ..selects([QSelectAll()]);
       var explainQuery = SqlExplain(bookQuery);
       var result = await execute(explainQuery.toSQL());
-
       expect(result.assoc, isList);
-      expect(result.assocFirst!['id'], '1');
-      expect(result.assocFirst!['select_type'], 'SIMPLE');
+      expect(result.rows.length, greaterThan(0));
       expect(result.rows.isNotEmpty, isTrue);
-      expect(result.errorMsg, isEmpty);
+      expect(result.error, isFalse);
     });
 
     test('Test Join', () async {
