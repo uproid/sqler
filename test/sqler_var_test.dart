@@ -62,13 +62,13 @@ void main() {
     test('test variable with SQL injection attempt', () {
       var var1 = QVar("'; DROP TABLE users; --");
       expect(var1.toSQL(), "'\\'; DROP TABLE users; --'");
-      expect(var1.toSQL<Sqlite>(), "'\\'; DROP TABLE users; --'");
+      expect(var1.toSQL<Sqlite>(), "'''; DROP TABLE users; --'");
     });
 
     test('test variable with special characters', () {
       var var1 = QVar("O'Reilly");
       expect(var1.toSQL(), "'O\\'Reilly'");
-      expect(var1.toSQL<Sqlite>(), "'O\\'Reilly'");
+      expect(var1.toSQL<Sqlite>(), "'O''Reilly'");
     });
 
     test('test variable with empty string', () {
@@ -80,7 +80,7 @@ void main() {
     test('test variable with special characters in list', () {
       var var1 = QVar(['O\'Reilly', 'test']);
       expect(var1.toSQL(), "('O\\'Reilly', 'test')");
-      expect(var1.toSQL<Sqlite>(), "('O\\'Reilly', 'test')");
+      expect(var1.toSQL<Sqlite>(), "('O''Reilly', 'test')");
     });
 
     test('test variable with empty string', () {

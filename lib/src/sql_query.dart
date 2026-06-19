@@ -1312,7 +1312,7 @@ class QVar extends SQL {
     if (value is SQL) {
       return '( ${value.toSQL<R>()} )';
     } else if (value is String) {
-      value = QVar.escape(value);
+      value = QVar.escape<R>(value);
       return "'$value'";
     } else if (value is DateTime) {
       return QVar.dateTime(value).toSQL<R>();
@@ -1341,10 +1341,13 @@ class QVar extends SQL {
   /// QVar.escape('Say "Hi"'); // "Say \\"Hi\\""
   /// ```
   // @TODO improve this method
-  static String escape(String input) {
-    input = input.replaceAll('"', '\\"');
-    input = input.replaceAll("'", "\\'");
-    //input = input.replaceAll('\x00', '\\0');
+  static String escape<R extends SqlType>(String input) {
+    if (SqlType.isSqlite<R>()) {
+      input = input.replaceAll("'", "''");
+    } else {
+      input = input.replaceAll('"', '\\"');
+      input = input.replaceAll("'", "\\'");
+    }
     return input;
   }
 

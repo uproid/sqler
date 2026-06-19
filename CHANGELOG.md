@@ -1,3 +1,9 @@
+
+## 1.2.1
+- Fixed [#24](https://github.com/uproid/sqler/issues/24) issue of unscaped string in QVar for sqlite
+- Fixed reports of dart analyze.
+- Update dependencies
+
 ## 1.2.0
 - #### `Sqler().toSQL<Sqlite>()`
 - **BREAKING CHANGE**: Renamed `mysql_query.dart` to `sql_query.dart` and `mysql_model.dart` to `sql_model.dart` for better generic SQL support

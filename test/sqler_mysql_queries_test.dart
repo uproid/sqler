@@ -3,7 +3,7 @@ import 'package:mysql_client/mysql_protocol.dart';
 import 'package:sqler/sqler.dart';
 import 'package:test/test.dart';
 
-main() async {
+void main() async {
   var conn = await MySQLConnection.createConnection(
     host: 'localhost',
     port: 3306,

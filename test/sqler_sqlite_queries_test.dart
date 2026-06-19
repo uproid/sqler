@@ -2,7 +2,7 @@ import 'package:sqler/sqler.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
-main() async {
+void main() async {
   var conn = sqlite3.open('./test_db.sqlite');
 
   Future<SqliteResult> execute(String sql) async {
@@ -45,7 +45,7 @@ main() async {
   );
   await execute(books.toSQL<Sqlite>());
 
-  group('Test on Mysql connection', () {
+  group('Test on Sqlite connection', () {
     test('Insert a book', () async {
       var query = Sqler().insert(QField('books'), [
         {
@@ -300,6 +300,51 @@ main() async {
       expect(
         result.cols.length,
         books.fields.length * 2 + categoriesTable.fields.length,
+      );
+    });
+  });
+
+  group('Test Unscaped Queries', () {
+    test('Test Unescaped Query', () async {
+      var name = '\'\'\'"4\\5@#%!^&*()`!_+-=~{}[]|;:,.<>?/';
+      var quthor = """```\"\"\"'''%%%&&&""";
+      var content = "\"'''\\4\\5@#%!^&*()`!_+-=~{}[]|;:,.<>?/";
+
+      var query = Sqler().insert(QField('books'), [
+        {
+          'name': QVar(name),
+          'author': QVar(quthor),
+          'publication_year': QVar(2023),
+          'published_date': QVar(DateTime(2023, 1, 1)),
+          'content': QVar(content),
+          'password': QVar.password('test'),
+        },
+      ]);
+      var result = await execute(query.toSQL<Sqlite>());
+      expect(result.errorMsg, isEmpty);
+      expect(result.error, isFalse);
+
+      // Read from sqlute:
+      var selectQuery =
+          Sqler()
+            ..from(QField('books'))
+            ..addSelect(QSelectAll())
+            ..whereOne(QField('name'), QO.LIKE, QVar(name));
+      var selectResult = await execute(selectQuery.toSQL<Sqlite>());
+      expect(
+        selectResult.assocFirst!['name'],
+        equals(name),
+        reason: 'The name should be the same as inserted',
+      );
+      expect(
+        selectResult.assocFirst!['author'],
+        equals(quthor),
+        reason: 'The author should be the same as inserted',
+      );
+      expect(
+        selectResult.assocFirst!['content'],
+        equals(content),
+        reason: 'The content should be the same as inserted',
       );
     });
   });
