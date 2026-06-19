@@ -2,7 +2,7 @@ import 'package:sqler/sqler.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 
-main() async {
+void main() async {
   var conn = sqlite3.open('./test_db.sqlite');
 
   Future<SqliteResult> execute(String sql) async {
@@ -300,6 +300,252 @@ main() async {
       expect(
         result.cols.length,
         books.fields.length * 2 + categoriesTable.fields.length,
+      );
+    });
+  });
+
+  // ── Index Support ─────────────────────────────────────────────────────────
+
+  group('Index Support — SQLite', () {
+    const tblName = 'idx_sqlite_test';
+
+    // conn.execute() uses sqlite3_exec which handles multiple statements
+    // (CREATE TABLE + appended CREATE INDEX statements).
+    void createTable(MTable t) => conn.execute(t.toSQL<Sqlite>());
+
+    setUp(() => conn.execute('DROP TABLE IF EXISTS "$tblName"'));
+    tearDown(() => conn.execute('DROP TABLE IF EXISTS "$tblName"'));
+
+    // ── SQL generation ──────────────────────────────────────────────────────
+
+    test(
+      'Indexes are emitted as separate CREATE INDEX statements, not inline',
+      () {
+        final sql =
+            MTable(
+              name: tblName,
+              fields: [
+                MFieldInt(
+                  name: 'id',
+                  isPrimaryKey: true,
+                  isAutoIncrement: true,
+                ),
+              ],
+              indexes: [
+                MIndex(
+                  indexName: 'uq_email',
+                  columns: [MIndexColumn('email')],
+                  type: MIndexType.unique,
+                ),
+                MIndex(
+                  indexName: 'idx_last_name',
+                  columns: [MIndexColumn('last_name')],
+                ),
+              ],
+            ).toSQL<Sqlite>();
+
+        expect(sql.split('\n').first, isNot(contains('INDEX')));
+        expect(
+          sql,
+          contains('CREATE UNIQUE INDEX "uq_email" ON "$tblName" ("email")'),
+        );
+        expect(
+          sql,
+          contains('CREATE INDEX "idx_last_name" ON "$tblName" ("last_name")'),
+        );
+      },
+    );
+
+    test('Partial index WHERE clause is emitted for SQLite', () {
+      final sql = MIndex(
+        indexName: 'idx_partial',
+        columns: [MIndexColumn('email')],
+        where: 'deleted_at IS NULL',
+      ).toCreateIndexSQL<Sqlite>(tblName);
+      expect(sql, contains('WHERE deleted_at IS NULL'));
+    });
+
+    test('DESC column sort order is emitted for SQLite', () {
+      final sql = MIndex(
+        indexName: 'idx_composite',
+        columns: [
+          MIndexColumn('last_name'),
+          MIndexColumn('first_name', desc: true),
+        ],
+      ).toCreateIndexSQL<Sqlite>(tblName);
+      expect(sql, contains('"last_name"'));
+      expect(sql, contains('"first_name" DESC'));
+    });
+
+    test('Auto-generated index names use double-quoted SQLite identifiers', () {
+      final sql = MIndex(
+        columns: [MIndexColumn('email')],
+        type: MIndexType.unique,
+      ).toCreateIndexSQL<Sqlite>(tblName);
+      expect(sql, contains('"uq_email"'));
+      expect(sql, contains('"$tblName"'));
+    });
+
+    test('MySQL-only options are not emitted for SQLite', () {
+      final sql = MIndex(
+        indexName: 'idx_opts',
+        columns: [MIndexColumn('bio', prefixLength: 100)],
+        comment: 'bio lookup',
+        invisible: true,
+        concurrently: true,
+      ).toCreateIndexSQL<Sqlite>(tblName);
+      expect(sql, isNot(contains('COMMENT')));
+      expect(sql, isNot(contains('INVISIBLE')));
+      expect(sql, isNot(contains('(100)'))); // prefix length dropped for SQLite
+      expect(sql, isNot(contains('CONCURRENTLY')));
+    });
+
+    test('NULLS FIRST/LAST is not emitted for SQLite', () {
+      final sql = MIndex(
+        indexName: 'idx_nulls',
+        columns: [MIndexColumn('score', nullsFirst: true)],
+      ).toCreateIndexSQL<Sqlite>(tblName);
+      expect(sql, isNot(contains('NULLS')));
+    });
+
+    // ── DB execution ────────────────────────────────────────────────────────
+
+    test('Table with multiple indexes creates without error', () {
+      expect(
+        () => createTable(
+          MTable(
+            name: tblName,
+            fields: [
+              MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+              MFieldVarchar(name: 'email', length: 255, isNullable: false),
+              MFieldVarchar(name: 'last_name', length: 100),
+            ],
+            indexes: [
+              MIndex(
+                indexName: 'uq_email',
+                columns: [MIndexColumn('email')],
+                type: MIndexType.unique,
+              ),
+              MIndex(
+                indexName: 'idx_last_name',
+                columns: [MIndexColumn('last_name')],
+              ),
+            ],
+          ),
+        ),
+        returnsNormally,
+      );
+    });
+
+    test('Unique index rejects duplicate values in SQLite', () {
+      createTable(
+        MTable(
+          name: tblName,
+          fields: [
+            MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+            MFieldVarchar(name: 'email', length: 255, isNullable: false),
+          ],
+          indexes: [
+            MIndex(
+              indexName: 'uq_email',
+              columns: [MIndexColumn('email')],
+              type: MIndexType.unique,
+            ),
+          ],
+        ),
+      );
+      conn.execute("INSERT INTO \"$tblName\" (email) VALUES ('a@sqlite.com')");
+      expect(
+        () => conn.execute(
+          "INSERT INTO \"$tblName\" (email) VALUES ('a@sqlite.com')",
+        ),
+        throwsA(anything),
+      );
+    });
+
+    test(
+      'Partial index with WHERE clause creates and the table is queryable',
+      () {
+        createTable(
+          MTable(
+            name: tblName,
+            fields: [
+              MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+              MFieldVarchar(name: 'email', length: 255),
+              MFieldInt(name: 'active', isNullable: true, defaultValue: 'NULL'),
+            ],
+            indexes: [
+              MIndex(
+                indexName: 'idx_active_emails',
+                columns: [MIndexColumn('email')],
+                where: 'active = 1',
+              ),
+            ],
+          ),
+        );
+        conn.execute(
+          "INSERT INTO \"$tblName\" (email, active) VALUES ('a@sqlite.com', 1)",
+        );
+        conn.execute(
+          "INSERT INTO \"$tblName\" (email, active) VALUES ('b@sqlite.com', 0)",
+        );
+        final rows = conn.select('SELECT * FROM "$tblName"');
+        expect(rows.length, 2);
+      },
+    );
+
+    test('Composite index creates and allows efficient filtering', () {
+      createTable(
+        MTable(
+          name: tblName,
+          fields: [
+            MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+            MFieldVarchar(name: 'last_name', length: 100),
+            MFieldVarchar(name: 'first_name', length: 100),
+          ],
+          indexes: [
+            MIndex(
+              indexName: 'idx_full_name',
+              columns: [MIndexColumn('last_name'), MIndexColumn('first_name')],
+            ),
+          ],
+        ),
+      );
+      conn.execute(
+        "INSERT INTO \"$tblName\" (last_name, first_name) VALUES ('Smith', 'John')",
+      );
+      conn.execute(
+        "INSERT INTO \"$tblName\" (last_name, first_name) VALUES ('Doe', 'Jane')",
+      );
+      final rows = conn.select(
+        "SELECT * FROM \"$tblName\" WHERE last_name = 'Smith'",
+      );
+      expect(rows.length, 1);
+      expect(rows.first['first_name'], 'John');
+    });
+
+    test('addIndex() chains and reflects in toSQL<Sqlite>()', () {
+      final t = MTable(
+        name: tblName,
+        fields: [
+          MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+          MFieldVarchar(name: 'slug', length: 200),
+        ],
+      )..addIndex(
+        MIndex(
+          indexName: 'uq_slug',
+          columns: [MIndexColumn('slug')],
+          type: MIndexType.unique,
+        ),
+      );
+      expect(t.indexes.length, 1);
+      final sql = t.toSQL<Sqlite>();
+      expect(sql, contains('CREATE UNIQUE INDEX "uq_slug"'));
+      createTable(t);
+      conn.execute("INSERT INTO \"$tblName\" (slug) VALUES ('hello')");
+      expect(
+        () => conn.execute("INSERT INTO \"$tblName\" (slug) VALUES ('hello')"),
+        throwsA(anything),
       );
     });
   });

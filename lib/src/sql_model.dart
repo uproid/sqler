@@ -30,6 +30,9 @@ class MTable extends SQL {
   /// List of foreign key constraints for the table
   List<ForeignKey> foreignKeys;
 
+  /// List of indexes for the table
+  List<MIndex> indexes;
+
   /// Character set for the table (default: utf8mb4)
   String charset = 'utf8mb4';
 
@@ -44,15 +47,23 @@ class MTable extends SQL {
   /// [name] is the table name (required)
   /// [fields] is the list of table fields/columns (required)
   /// [foreignKeys] is the list of foreign key constraints (optional, defaults to empty list)
+  /// [indexes] is the list of indexes (optional, defaults to empty list)
   /// [charset] is the character set for the table (optional, defaults to 'utf8mb4')
   /// [collation] is the collation for the table (optional, defaults to 'utf8mb4_unicode_ci')
   MTable({
     required this.name,
     required this.fields,
     this.foreignKeys = const [],
+    this.indexes = const [],
     this.charset = 'utf8mb4',
     this.collation = 'utf8mb4_unicode_ci',
   });
+
+  /// Adds a new index to the table definition.
+  MTable addIndex(MIndex index) {
+    indexes = [...indexes, index];
+    return this;
+  }
 
   /// Generates a list of [QSelect] objects for all fields in the table.
   ///
@@ -130,12 +141,22 @@ class MTable extends SQL {
   @override
   String toSQL<T extends SqlType>() {
     String sql = 'CREATE TABLE ${SQL.q<T>(name)} (';
-    sql += fields.map((field) => field.toSQL<T>()).join(', ');
+    final parts = fields.map((f) => f.toSQL<T>()).toList();
+    // MySQL: indexes live inside the CREATE TABLE block
+    if (SqlType.isMysql<T>() && indexes.isNotEmpty) {
+      parts.addAll(indexes.map((idx) => idx.toSQL<T>()));
+    }
+    sql += parts.join(', ');
     sql += ')';
     sql +=
         SqlType.isMysql<T>()
             ? ' ENGINE=$engine DEFAULT CHARSET=$charset COLLATE=$collation;'
             : ';';
+    // SQLite / PostgreSQL: indexes must be separate CREATE INDEX statements
+    if (!SqlType.isMysql<T>() && indexes.isNotEmpty) {
+      sql +=
+          '\n${indexes.map((idx) => idx.toCreateIndexSQL<T>(name)).join('\n')}';
+    }
     return sql;
   }
 
@@ -1037,5 +1058,263 @@ class ForeignKey extends SQL {
   @override
   String toSQL<T extends SqlType>() {
     return 'FOREIGN KEY (`$name`) REFERENCES `$refTable`(`$refColumn`) ON DELETE $onDelete ON UPDATE $onUpdate';
+  }
+}
+
+// ─── Index support ────────────────────────────────────────────────────────────
+
+/// A column reference inside an [MIndex], with optional per-column options.
+///
+/// Example:
+/// ```dart
+/// MIndexColumn('email')
+/// MIndexColumn('bio', prefixLength: 100)        // MySQL prefix index
+/// MIndexColumn('score', desc: true)             // descending sort
+/// MIndexColumn('score', nullsFirst: false)      // PostgreSQL NULLS LAST
+/// ```
+class MIndexColumn {
+  /// The column name.
+  final String name;
+
+  /// Index only the first [prefixLength] bytes of the value (MySQL only).
+  /// Required for TEXT/BLOB columns and useful for long VARCHAR columns.
+  final int? prefixLength;
+
+  /// Sort direction: `true` = DESC, `false` (default) = ASC.
+  final bool desc;
+
+  /// PostgreSQL: `true` = NULLS FIRST, `false` = NULLS LAST, `null` = DB default.
+  final bool? nullsFirst;
+
+  const MIndexColumn(
+    this.name, {
+    this.prefixLength,
+    this.desc = false,
+    this.nullsFirst,
+  });
+}
+
+/// Index type — controls the DDL keyword and constraint enforced.
+enum MIndexType {
+  /// Standard non-unique index.
+  regular,
+
+  /// Unique index — prevents duplicate values across indexed columns.
+  unique,
+
+  /// Full-text index for natural-language text search.
+  /// MySQL and PostgreSQL (via GIN) only.
+  fulltext,
+
+  /// Spatial / geometric index. MySQL only.
+  spatial,
+}
+
+/// Index storage method (access structure).
+///
+/// Support varies by database; omit [using] to accept the engine default.
+///
+/// | Method  | MySQL | SQLite | PostgreSQL |
+/// |---------|-------|--------|------------|
+/// | btree   | ✓     | always | ✓ default  |
+/// | hash    | ✓*    | –      | ✓          |
+/// | gin     | –     | –      | ✓          |
+/// | gist    | –     | –      | ✓          |
+/// | brin    | –     | –      | ✓          |
+/// | spgist  | –     | –      | ✓          |
+///
+/// *MySQL HASH is only effective on MEMORY/NDB storage engine tables.
+enum MIndexUsing {
+  /// B-tree: default for most engines; supports range and equality queries.
+  btree,
+
+  /// Hash: equality-only; MySQL MEMORY tables, PostgreSQL.
+  hash,
+
+  /// Generalized Inverted Index — PostgreSQL full-text and array columns.
+  gin,
+
+  /// Generalized Search Tree — PostgreSQL geometric and range types.
+  gist,
+
+  /// Block Range Index — PostgreSQL large append-mostly tables.
+  brin,
+
+  /// Space-Partitioned GiST — PostgreSQL point/box types.
+  spgist,
+}
+
+/// Defines an index on one or more columns of an [MTable].
+///
+/// **MySQL** — emitted inline inside `CREATE TABLE` via [toSQL]:
+/// ```sql
+/// UNIQUE INDEX `idx_email` (`email`) USING BTREE COMMENT 'lookup'
+/// ```
+///
+/// **SQLite / PostgreSQL** — emitted as a separate `CREATE INDEX` statement
+/// via [toCreateIndexSQL]; [MTable.toSQL] appends these automatically.
+/// ```sql
+/// -- SQLite
+/// CREATE UNIQUE INDEX "idx_email" ON "users" ("email") WHERE deleted_at IS NULL;
+///
+/// -- PostgreSQL
+/// CREATE UNIQUE INDEX CONCURRENTLY "idx_email" ON "users" USING btree ("email")
+///   WHERE deleted_at IS NULL;
+/// ```
+///
+/// Example:
+/// ```dart
+/// // Simple unique index
+/// MIndex(indexName: 'idx_email', columns: [MIndexColumn('email')], type: MIndexType.unique)
+///
+/// // Composite with per-column ordering
+/// MIndex(columns: [MIndexColumn('last_name'), MIndexColumn('first_name', desc: true)])
+///
+/// // MySQL prefix index on a long column
+/// MIndex(columns: [MIndexColumn('bio', prefixLength: 100)])
+///
+/// // Partial index (SQLite / PostgreSQL)
+/// MIndex(
+///   indexName: 'idx_active',
+///   columns: [MIndexColumn('email')],
+///   where: 'deleted_at IS NULL',
+/// )
+///
+/// // PostgreSQL GIN index for full-text search
+/// MIndex(
+///   columns: [MIndexColumn('body')],
+///   using: MIndexUsing.gin,
+/// )
+///
+/// // PostgreSQL: non-blocking concurrent build + NULLS LAST
+/// MIndex(
+///   indexName: 'idx_score',
+///   columns: [MIndexColumn('score', desc: true, nullsFirst: false)],
+///   concurrently: true,
+/// )
+/// ```
+class MIndex extends SQL {
+  /// Explicit index name. Auto-generated from type + column names if omitted.
+  final String? indexName;
+
+  /// Columns included in the index, in declaration order.
+  final List<MIndexColumn> columns;
+
+  /// Index type — regular, unique, fulltext (MySQL/PG), or spatial (MySQL).
+  final MIndexType type;
+
+  /// Storage method override. `null` = use the database engine default.
+  final MIndexUsing? using;
+
+  /// Partial index condition emitted as `WHERE <where>`.
+  /// Supported by SQLite and PostgreSQL; ignored by MySQL.
+  final String? where;
+
+  /// Index-level comment (MySQL only).
+  final String? comment;
+
+  /// Make the index invisible to the query optimizer (MySQL 8.0+ only).
+  final bool invisible;
+
+  /// Build the index without locking the table (PostgreSQL only).
+  /// Emits `CREATE INDEX CONCURRENTLY`.
+  final bool concurrently;
+
+  MIndex({
+    this.indexName,
+    required this.columns,
+    this.type = MIndexType.regular,
+    this.using,
+    this.where,
+    this.comment,
+    this.invisible = false,
+    this.concurrently = false,
+  });
+
+  String get _resolvedName {
+    if (indexName != null) return indexName!;
+    final prefix = switch (type) {
+      MIndexType.unique => 'uq',
+      MIndexType.fulltext => 'ft',
+      MIndexType.spatial => 'sp',
+      MIndexType.regular => 'idx',
+    };
+    return '${prefix}_${columns.map((c) => c.name).join('_')}';
+  }
+
+  String _colEntry<T extends SqlType>(MIndexColumn c) {
+    var col = SQL.q<T>(c.name);
+    if (c.prefixLength != null && SqlType.isMysql<T>()) col += '(${c.prefixLength})';
+    if (c.desc) col += ' DESC';
+    if (c.nullsFirst != null && SqlType.isPostgres<T>()) {
+      col += c.nullsFirst! ? ' NULLS FIRST' : ' NULLS LAST';
+    }
+    return col;
+  }
+
+  String _colList<T extends SqlType>() =>
+      columns.map((c) => _colEntry<T>(c)).join(', ');
+
+  /// Generates the inline index definition for use inside a MySQL `CREATE TABLE`.
+  ///
+  /// For SQLite / PostgreSQL use [toCreateIndexSQL] — [MTable.toSQL] selects
+  /// the correct form automatically.
+  @override
+  String toSQL<T extends SqlType>() {
+    final keyword = switch (type) {
+      MIndexType.unique => 'UNIQUE INDEX',
+      MIndexType.fulltext => 'FULLTEXT INDEX',
+      MIndexType.spatial => 'SPATIAL INDEX',
+      MIndexType.regular => 'INDEX',
+    };
+    var sql = '$keyword ${SQL.q<T>(_resolvedName)} (${_colList<T>()})';
+    if (using != null) sql += ' USING ${using!.name.toUpperCase()}';
+    if (comment != null) {
+      sql += " COMMENT '${comment!.replaceAll("'", "\\'")}'";
+    }
+    if (invisible) sql += ' INVISIBLE';
+    return sql;
+  }
+
+  /// Generates a standalone `CREATE INDEX` statement.
+  ///
+  /// [tableName] is the table this index belongs to.
+  /// Works for MySQL, SQLite, and PostgreSQL.
+  String toCreateIndexSQL<T extends SqlType>(String tableName) {
+    final isUnique = type == MIndexType.unique;
+    final concurrentlyClause =
+        concurrently && SqlType.isPostgres<T>() ? ' CONCURRENTLY' : '';
+
+    var keyword = isUnique ? 'CREATE UNIQUE INDEX' : 'CREATE INDEX';
+    if (!isUnique && type == MIndexType.fulltext && SqlType.isMysql<T>()) {
+      keyword = 'CREATE FULLTEXT INDEX';
+    }
+    if (!isUnique && type == MIndexType.spatial && SqlType.isMysql<T>()) {
+      keyword = 'CREATE SPATIAL INDEX';
+    }
+
+    var sql =
+        '$keyword$concurrentlyClause ${SQL.q<T>(_resolvedName)} ON ${SQL.q<T>(tableName)}';
+
+    // PostgreSQL puts USING before the column list
+    if (using != null && SqlType.isPostgres<T>()) {
+      sql += ' USING ${using!.name.toLowerCase()}';
+    }
+
+    sql += ' (${_colList<T>()})';
+
+    // MySQL puts USING after the column list
+    if (using != null && SqlType.isMysql<T>()) {
+      sql += ' USING ${using!.name.toUpperCase()}';
+    }
+
+    if (where != null && !SqlType.isMysql<T>()) sql += ' WHERE $where';
+
+    if (comment != null && SqlType.isMysql<T>()) {
+      sql += " COMMENT '${comment!.replaceAll("'", "\\'")}'";
+    }
+    if (invisible && SqlType.isMysql<T>()) sql += ' INVISIBLE';
+
+    return '$sql;';
   }
 }

@@ -1,8 +1,9 @@
 import 'package:postgres/postgres.dart';
 import 'package:sqler/sqler.dart';
 import 'package:test/test.dart';
+import 'result/postpresql_result.dart';
 
-main() async {
+void main() async {
   final conn = await Connection.open(
     Endpoint(
       host: 'localhost',
@@ -1648,45 +1649,335 @@ main() async {
       },
     );
   });
-}
 
-class PostgresResult {
-  static const String _countRecordsField = 'count_records';
-  final Result? _result;
+  // ── Index Support ─────────────────────────────────────────────────────────
 
-  String errorMsg;
-  PostgresResult(this._result, {this.errorMsg = ''});
+  group('Index Support — PostgreSQL', () {
+    const tblName = 'idx_pg_test';
 
-  bool get success => errorMsg.isEmpty;
-  bool get error => !success;
+    // toSQL<Postgres>() on a table with indexes returns multiple newline-separated
+    // statements (CREATE TABLE + CREATE INDEX ...). Execute each individually.
+    Future<void> createTable(MTable t) async {
+      for (final stmt in t.toSQL<Postgres>().split('\n')) {
+        if (stmt.trim().isNotEmpty) await execute(stmt);
+      }
+    }
 
-  List<ResultRow> get rows => _result?.toList() ?? [];
-  int get affectedRows => _result?.affectedRows ?? 0;
-  List<String> get cols =>
-      _result?.schema.columns
-          .map((c) => c.columnName ?? '')
-          .where((n) => n.isNotEmpty)
-          .toList() ??
-      [];
+    setUp(() async => execute('DROP TABLE IF EXISTS "$tblName"'));
+    tearDown(() async => execute('DROP TABLE IF EXISTS "$tblName"'));
 
-  List<Map<String, String?>> get assoc {
-    return rows.map((row) {
-      final map = row.toColumnMap();
-      return map.map((k, v) => MapEntry(k, v?.toString()));
-    }).toList();
-  }
+    // ── SQL generation ──────────────────────────────────────────────────────
 
-  Map<String, String?>? get assocFirst {
-    if (rows.isEmpty) return null;
-    return assoc.first;
-  }
+    test(
+      'Indexes are emitted as separate CREATE INDEX statements, not inline',
+      () {
+        final sql =
+            MTable(
+              name: tblName,
+              fields: [
+                MFieldInt(
+                  name: 'id',
+                  isPrimaryKey: true,
+                  isAutoIncrement: true,
+                ),
+              ],
+              indexes: [
+                MIndex(
+                  indexName: 'uq_email',
+                  columns: [MIndexColumn('email')],
+                  type: MIndexType.unique,
+                ),
+                MIndex(
+                  indexName: 'idx_last_name',
+                  columns: [MIndexColumn('last_name')],
+                ),
+              ],
+            ).toSQL<Postgres>();
 
-  Map<String, String?>? get assocLast {
-    if (rows.isEmpty) return null;
-    return assoc.last;
-  }
+        // CREATE TABLE line must not contain INDEX
+        expect(sql.split('\n').first, isNot(contains('INDEX')));
+        expect(
+          sql,
+          contains('CREATE UNIQUE INDEX "uq_email" ON "$tblName" ("email")'),
+        );
+        expect(
+          sql,
+          contains('CREATE INDEX "idx_last_name" ON "$tblName" ("last_name")'),
+        );
+      },
+    );
 
-  int get countRecords {
-    return int.tryParse((assocFirst?[_countRecordsField] ?? 0).toString()) ?? 0;
-  }
+    test('USING is placed before the column list for PostgreSQL', () {
+      final sql = MIndex(
+        indexName: 'idx_gin',
+        columns: [MIndexColumn('content')],
+        using: MIndexUsing.gin,
+      ).toCreateIndexSQL<Postgres>(tblName);
+      expect(sql, contains('USING gin'));
+      expect(sql.indexOf('USING gin'), lessThan(sql.indexOf('("content")')));
+    });
+
+    test(
+      'USING is placed after the column list for MySQL (cross-DB contrast)',
+      () {
+        final sql = MIndex(
+          indexName: 'idx_btree',
+          columns: [MIndexColumn('email')],
+          using: MIndexUsing.btree,
+        ).toCreateIndexSQL<Mysql>(tblName);
+        expect(sql.indexOf('(`email`)'), lessThan(sql.indexOf('USING BTREE')));
+      },
+    );
+
+    test('CONCURRENTLY is emitted for PostgreSQL only', () {
+      final idx = MIndex(
+        indexName: 'idx_c',
+        columns: [MIndexColumn('email')],
+        concurrently: true,
+      );
+      expect(
+        idx.toCreateIndexSQL<Postgres>(tblName),
+        contains('CREATE INDEX CONCURRENTLY'),
+      );
+      expect(
+        idx.toCreateIndexSQL<Mysql>(tblName),
+        isNot(contains('CONCURRENTLY')),
+      );
+      expect(
+        idx.toCreateIndexSQL<Sqlite>(tblName),
+        isNot(contains('CONCURRENTLY')),
+      );
+    });
+
+    test(
+      'Partial index WHERE clause is emitted for PostgreSQL and SQLite only',
+      () {
+        final idx = MIndex(
+          indexName: 'idx_partial',
+          columns: [MIndexColumn('email')],
+          where: 'deleted_at IS NULL',
+        );
+        expect(
+          idx.toCreateIndexSQL<Postgres>(tblName),
+          contains('WHERE deleted_at IS NULL'),
+        );
+        expect(
+          idx.toCreateIndexSQL<Sqlite>(tblName),
+          contains('WHERE deleted_at IS NULL'),
+        );
+        expect(idx.toCreateIndexSQL<Mysql>(tblName), isNot(contains('WHERE')));
+      },
+    );
+
+    test('NULLS FIRST / NULLS LAST are emitted for PostgreSQL only', () {
+      final idx = MIndex(
+        indexName: 'idx_nulls',
+        columns: [MIndexColumn('score', desc: true, nullsFirst: false)],
+      );
+      expect(
+        idx.toCreateIndexSQL<Postgres>(tblName),
+        contains('"score" DESC NULLS LAST'),
+      );
+      expect(idx.toCreateIndexSQL<Mysql>(tblName), isNot(contains('NULLS')));
+      expect(idx.toCreateIndexSQL<Sqlite>(tblName), isNot(contains('NULLS')));
+    });
+
+    test('MySQL COMMENT and INVISIBLE are not emitted for PostgreSQL', () {
+      final sql = MIndex(
+        indexName: 'idx_opts',
+        columns: [MIndexColumn('email')],
+        comment: 'lookup',
+        invisible: true,
+      ).toCreateIndexSQL<Postgres>(tblName);
+      expect(sql, isNot(contains('COMMENT')));
+      expect(sql, isNot(contains('INVISIBLE')));
+    });
+
+    test('Prefix length is ignored for PostgreSQL (MySQL-only feature)', () {
+      final sql = MIndex(
+        indexName: 'idx_pfx',
+        columns: [MIndexColumn('bio', prefixLength: 100)],
+      ).toCreateIndexSQL<Postgres>(tblName);
+      expect(sql, isNot(contains('(100)')));
+    });
+
+    // ── DB execution ────────────────────────────────────────────────────────
+
+    test(
+      'Table with composite and unique indexes creates without error',
+      () async {
+        await createTable(
+          MTable(
+            name: tblName,
+            fields: [
+              MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+              MFieldVarchar(name: 'email', length: 255, isNullable: false),
+              MFieldVarchar(name: 'last_name', length: 100),
+              MFieldVarchar(name: 'first_name', length: 100),
+            ],
+            indexes: [
+              MIndex(
+                indexName: 'uq_email',
+                columns: [MIndexColumn('email')],
+                type: MIndexType.unique,
+              ),
+              MIndex(
+                indexName: 'idx_full_name',
+                columns: [
+                  MIndexColumn('last_name'),
+                  MIndexColumn('first_name'),
+                ],
+              ),
+            ],
+          ),
+        );
+        final r = await execute(
+          "INSERT INTO \"$tblName\" (email, last_name, first_name) "
+          "VALUES ('x@pg.com', 'Doe', 'John')",
+        );
+        expect(r.errorMsg, isEmpty);
+        expect(r.affectedRows, 1);
+      },
+    );
+
+    test('Unique index rejects duplicate values in PostgreSQL', () async {
+      await createTable(
+        MTable(
+          name: tblName,
+          fields: [
+            MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+            MFieldVarchar(name: 'email', length: 255, isNullable: false),
+          ],
+          indexes: [
+            MIndex(
+              indexName: 'uq_email',
+              columns: [MIndexColumn('email')],
+              type: MIndexType.unique,
+            ),
+          ],
+        ),
+      );
+      final r1 = await execute(
+        "INSERT INTO \"$tblName\" (email) VALUES ('a@pg.com')",
+      );
+      expect(r1.errorMsg, isEmpty);
+      final r2 = await execute(
+        "INSERT INTO \"$tblName\" (email) VALUES ('a@pg.com')",
+      );
+      expect(r2.errorMsg, isNotEmpty); // unique-violation error
+    });
+
+    test(
+      'Partial index with WHERE clause creates and the table is queryable',
+      () async {
+        await createTable(
+          MTable(
+            name: tblName,
+            fields: [
+              MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+              MFieldVarchar(name: 'email', length: 255),
+              MFieldInt(name: 'active', isNullable: true, defaultValue: 'NULL'),
+            ],
+            indexes: [
+              MIndex(
+                indexName: 'idx_active_emails',
+                columns: [MIndexColumn('email')],
+                where: 'active = 1',
+              ),
+            ],
+          ),
+        );
+        await execute(
+          "INSERT INTO \"$tblName\" (email, active) VALUES ('a@pg.com', 1)",
+        );
+        await execute(
+          "INSERT INTO \"$tblName\" (email, active) VALUES ('b@pg.com', 0)",
+        );
+        final r = await execute("SELECT * FROM \"$tblName\" ORDER BY id");
+        expect(r.errorMsg, isEmpty);
+        expect(r.rows.length, 2);
+      },
+    );
+
+    test('BTREE index creates and supports equality queries', () async {
+      await createTable(
+        MTable(
+          name: tblName,
+          fields: [
+            MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+            MFieldVarchar(name: 'email', length: 255),
+          ],
+          indexes: [
+            MIndex(
+              indexName: 'idx_email_btree',
+              columns: [MIndexColumn('email')],
+              using: MIndexUsing.btree,
+            ),
+          ],
+        ),
+      );
+      await execute("INSERT INTO \"$tblName\" (email) VALUES ('btree@pg.com')");
+      final r = await execute(
+        "SELECT * FROM \"$tblName\" WHERE email = 'btree@pg.com'",
+      );
+      expect(r.errorMsg, isEmpty);
+      expect(r.rows.length, 1);
+    });
+
+    test('Descending index with NULLS LAST creates successfully', () async {
+      await createTable(
+        MTable(
+          name: tblName,
+          fields: [
+            MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+            MFieldInt(name: 'score', isNullable: true, defaultValue: 'NULL'),
+          ],
+          indexes: [
+            MIndex(
+              indexName: 'idx_score_desc',
+              columns: [MIndexColumn('score', desc: true, nullsFirst: false)],
+            ),
+          ],
+        ),
+      );
+      await execute("INSERT INTO \"$tblName\" (score) VALUES (10)");
+      await execute("INSERT INTO \"$tblName\" (score) VALUES (NULL)");
+      final r = await execute(
+        "SELECT score FROM \"$tblName\" ORDER BY score DESC NULLS LAST",
+      );
+      expect(r.errorMsg, isEmpty);
+      expect(r.rows.length, 2);
+      expect(r.assocFirst!['score'], '10');
+      expect(r.assocLast!['score'], isNull);
+    });
+
+    test(
+      'addIndex() method chains and reflects in toSQL<Postgres>()',
+      () async {
+        final t = MTable(
+          name: tblName,
+          fields: [
+            MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+            MFieldVarchar(name: 'slug', length: 200),
+          ],
+        )..addIndex(
+          MIndex(
+            indexName: 'uq_slug',
+            columns: [MIndexColumn('slug')],
+            type: MIndexType.unique,
+          ),
+        );
+        expect(t.indexes.length, 1);
+        final sql = t.toSQL<Postgres>();
+        expect(sql, contains('CREATE UNIQUE INDEX "uq_slug"'));
+        await createTable(t);
+        // Verify constraint
+        await execute("INSERT INTO \"$tblName\" (slug) VALUES ('hello')");
+        final r = await execute(
+          "INSERT INTO \"$tblName\" (slug) VALUES ('hello')",
+        );
+        expect(r.errorMsg, isNotEmpty);
+      },
+    );
+  });
 }

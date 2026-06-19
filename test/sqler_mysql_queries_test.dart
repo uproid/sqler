@@ -3,7 +3,7 @@ import 'package:mysql_client/mysql_protocol.dart';
 import 'package:sqler/sqler.dart';
 import 'package:test/test.dart';
 
-main() async {
+void main() async {
   var conn = await MySQLConnection.createConnection(
     host: 'localhost',
     port: 3306,
@@ -310,6 +310,238 @@ main() async {
         result.resultSet.cols.length,
         books.fields.length * 2 + categoriesTable.fields.length,
       );
+    });
+  });
+
+  // ── Index Support ─────────────────────────────────────────────────────────
+
+  group('Index Support — MySQL', () {
+    const tblName = 'idx_mysql_test';
+
+    MTable buildTable(List<MIndex> indexes) => MTable(
+      name: tblName,
+      fields: [
+        MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+        MFieldVarchar(name: 'email', length: 255, isNullable: false),
+        MFieldVarchar(name: 'last_name', length: 100),
+        MFieldText(name: 'bio', isNullable: true),
+        MFieldInt(name: 'score', isNullable: true, defaultValue: 'NULL'),
+      ],
+      indexes: indexes,
+    );
+
+    setUp(() async => execute('DROP TABLE IF EXISTS `$tblName`'));
+    tearDown(() async => execute('DROP TABLE IF EXISTS `$tblName`'));
+
+    // ── SQL generation ──────────────────────────────────────────────────────
+
+    test('Indexes are emitted inline inside CREATE TABLE for MySQL', () {
+      final sql =
+          buildTable([
+            MIndex(
+              indexName: 'uq_email',
+              columns: [MIndexColumn('email')],
+              type: MIndexType.unique,
+            ),
+            MIndex(indexName: 'idx_name', columns: [MIndexColumn('last_name')]),
+            MIndex(
+              indexName: 'idx_bio_pfx',
+              columns: [MIndexColumn('bio', prefixLength: 100)],
+            ),
+            MIndex(
+              indexName: 'ft_bio',
+              columns: [MIndexColumn('bio')],
+              type: MIndexType.fulltext,
+            ),
+          ]).toSQL();
+
+      expect(sql, contains('UNIQUE INDEX `uq_email` (`email`)'));
+      expect(sql, contains('INDEX `idx_name` (`last_name`)'));
+      expect(sql, contains('INDEX `idx_bio_pfx` (`bio`(100))'));
+      expect(sql, contains('FULLTEXT INDEX `ft_bio` (`bio`)'));
+      // Single statement — no separate CREATE INDEX appended
+      expect(sql.trim(), isNot(startsWith('CREATE INDEX')));
+      expect(';\n', isNot(isIn(sql))); // no newline-delimited second statement
+    });
+
+    test('toCreateIndexSQL generates a correct standalone MySQL statement', () {
+      final sql = MIndex(
+        indexName: 'uq_email',
+        columns: [MIndexColumn('email')],
+        type: MIndexType.unique,
+      ).toCreateIndexSQL<Mysql>(tblName);
+      expect(
+        sql,
+        equals('CREATE UNIQUE INDEX `uq_email` ON `$tblName` (`email`);'),
+      );
+    });
+
+    test('USING BTREE is placed after the column list for MySQL', () {
+      final sql = MIndex(
+        indexName: 'idx_btree',
+        columns: [MIndexColumn('email')],
+        using: MIndexUsing.btree,
+      ).toCreateIndexSQL<Mysql>(tblName);
+      expect(sql, contains('USING BTREE'));
+      expect(sql.indexOf('(`email`)'), lessThan(sql.indexOf('USING BTREE')));
+    });
+
+    test('INVISIBLE and COMMENT options are emitted for MySQL', () {
+      final sql =
+          MIndex(
+            indexName: 'idx_opts',
+            columns: [MIndexColumn('score')],
+            comment: 'score lookup',
+            invisible: true,
+          ).toSQL<Mysql>();
+      expect(sql, contains("COMMENT 'score lookup'"));
+      expect(sql, contains('INVISIBLE'));
+    });
+
+    test('DESC column sort order is emitted', () {
+      final sql =
+          MIndex(
+            indexName: 'idx_score_desc',
+            columns: [MIndexColumn('score', desc: true)],
+          ).toSQL<Mysql>();
+      expect(sql, contains('`score` DESC'));
+    });
+
+    test('Auto-generated index names use type prefix and column name', () {
+      expect(
+        MIndex(columns: [MIndexColumn('slug')]).toSQL<Mysql>(),
+        contains('`idx_slug`'),
+      );
+      expect(
+        MIndex(
+          columns: [MIndexColumn('slug')],
+          type: MIndexType.unique,
+        ).toSQL<Mysql>(),
+        contains('`uq_slug`'),
+      );
+      expect(
+        MIndex(
+          columns: [MIndexColumn('slug')],
+          type: MIndexType.fulltext,
+        ).toSQL<Mysql>(),
+        contains('`ft_slug`'),
+      );
+      expect(
+        MIndex(
+          columns: [MIndexColumn('slug')],
+          type: MIndexType.spatial,
+        ).toSQL<Mysql>(),
+        contains('`sp_slug`'),
+      );
+    });
+
+    test('Multi-column composite index lists all columns in order', () {
+      final sql = MIndex(
+        indexName: 'idx_composite',
+        columns: [MIndexColumn('last_name'), MIndexColumn('email', desc: true)],
+      ).toCreateIndexSQL<Mysql>(tblName);
+      expect(sql, contains('(`last_name`, `email` DESC)'));
+    });
+
+    // ── DB execution ────────────────────────────────────────────────────────
+
+    test('Table with mixed index types creates without error', () async {
+      final r = await execute(
+        buildTable([
+          MIndex(
+            indexName: 'uq_email',
+            columns: [MIndexColumn('email')],
+            type: MIndexType.unique,
+          ),
+          MIndex(
+            indexName: 'ft_bio',
+            columns: [MIndexColumn('bio')],
+            type: MIndexType.fulltext,
+          ),
+        ]).toSQL(),
+      );
+      expect(r.errorMsg, isEmpty);
+    });
+
+    test('Unique index rejects duplicate values', () async {
+      await execute(
+        buildTable([
+          MIndex(
+            indexName: 'uq_email',
+            columns: [MIndexColumn('email')],
+            type: MIndexType.unique,
+          ),
+        ]).toSQL(),
+      );
+      final r1 = await execute(
+        "INSERT INTO `$tblName` (email, last_name) VALUES ('a@test.com', 'A')",
+      );
+      expect(r1.errorMsg, isEmpty);
+      final r2 = await execute(
+        "INSERT INTO `$tblName` (email, last_name) VALUES ('a@test.com', 'B')",
+      );
+      expect(r2.errorMsg, isNotEmpty); // duplicate-key error
+    });
+
+    test('FULLTEXT index supports MATCH AGAINST queries', () async {
+      await execute(
+        buildTable([
+          MIndex(
+            indexName: 'ft_bio',
+            columns: [MIndexColumn('bio')],
+            type: MIndexType.fulltext,
+          ),
+        ]).toSQL(),
+      );
+      await execute(
+        "INSERT INTO `$tblName` (email, last_name, bio) "
+        "VALUES ('x@test.com', 'X', 'Dart programming language')",
+      );
+      final r = await execute(
+        "SELECT * FROM `$tblName` WHERE MATCH(bio) AGAINST('Dart' IN BOOLEAN MODE)",
+      );
+      expect(r.errorMsg, isEmpty);
+      expect(r.rows.length, greaterThanOrEqualTo(1));
+    });
+
+    test('Prefix index on TEXT column creates and allows queries', () async {
+      await execute(
+        buildTable([
+          MIndex(
+            indexName: 'idx_bio_pfx',
+            columns: [MIndexColumn('bio', prefixLength: 50)],
+          ),
+        ]).toSQL(),
+      );
+      await execute(
+        "INSERT INTO `$tblName` (email, last_name, bio) "
+        "VALUES ('y@test.com', 'Y', 'Short bio text')",
+      );
+      final r = await execute(
+        "SELECT * FROM `$tblName` WHERE bio = 'Short bio text'",
+      );
+      expect(r.errorMsg, isEmpty);
+      expect(r.rows.length, 1);
+    });
+
+    test('addIndex() appends index and reflects in generated SQL', () async {
+      final t = MTable(
+        name: tblName,
+        fields: [
+          MFieldInt(name: 'id', isPrimaryKey: true, isAutoIncrement: true),
+          MFieldVarchar(name: 'email', length: 255),
+        ],
+      )..addIndex(
+        MIndex(
+          indexName: 'uq_email',
+          columns: [MIndexColumn('email')],
+          type: MIndexType.unique,
+        ),
+      );
+      expect(t.indexes.length, 1);
+      expect(t.toSQL(), contains('UNIQUE INDEX `uq_email`'));
+      final r = await execute(t.toSQL());
+      expect(r.errorMsg, isEmpty);
     });
   });
 }
