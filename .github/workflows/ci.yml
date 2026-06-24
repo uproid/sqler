@@ -1,5 +1,7 @@
 name: Test Workflow
-
+permissions:
+  contents: read
+  pull-requests: write
 # Trigger the workflow on push and pull requests
 on:
   - push
