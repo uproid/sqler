@@ -1,3 +1,15 @@
+## Unreleased
+- **SECURITY**: Fixed several SQL injection vectors (see `test/sqler_injection_test.dart`)
+  - MySQL: backslash is now escaped and quotes are doubled (`''`) in `QVar` strings (previously `\'` could close the literal early)
+  - `QVarLike` now uses the SQL dialect (it was always using MySQL escaping), escapes `\`, `%` and `_`, and adds `ESCAPE '\'` on SQLite
+  - Identifiers (`QField`, `QSelect`, `QOrder`, aliases, joins, insert/update column names, DDL names) are quoted safely by doubling the quote character; every part of `a.b.c` is quoted
+  - `QVar` throws `ArgumentError` for unsupported types (e.g. `Map`, arbitrary objects, NaN) instead of using `toString()`
+  - `{param}` placeholders are no longer expanded inside string literals or inside already substituted values
+  - `MField` default value, comment, enum/set values and `ForeignKey` names are escaped
+- **FIXED (logic bug with security impact)**: an `OrWhere` combined with other top-level `where()` conditions was not parenthesised, so `tenant_id = 1 AND a = 1 OR b = 2` let the `OR` branch escape every other filter. It now renders `tenant_id = 1 AND ( a = 1 OR b = 2 )`
+- **BREAKING (output only)**: `QField('table.name')` now renders `` `table`.`name` `` (was ``table.`name` ``), and `'` in MySQL strings renders as `''` instead of `\'`
+- Raw classes (`QSelectString`, `QMath`, `SQL.custom`, `ConditionString`) are still unescaped by design - never pass user input to them
+
 
 ## 1.2.1
 - Fixed [#24](https://github.com/uproid/sqler/issues/24) issue of unscaped string in QVar for sqlite

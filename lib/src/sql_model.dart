@@ -193,6 +193,10 @@ abstract class MField extends SQL {
   /// Additional options for the field (e.g., length, precision)
   String _options = '';
 
+  /// Allowed values of ENUM / SET fields. Rendered (and escaped) in [toSQL]
+  /// because escaping depends on the SQL dialect.
+  List<String>? _enumValues;
+
   List<ValidatorEvent> validators;
 
   /// Creates a new MySQL field definition.
@@ -240,7 +244,11 @@ abstract class MField extends SQL {
   /// Example output: "`field_name` INT NOT NULL AUTO_INCREMENT PRIMARY KEY"
   @override
   String toSQL<T extends SqlType>() {
-    String sql = '${QField(name).toSQL<T>()} ${type.toSQL<T>()}$_options';
+    final options =
+        _enumValues != null
+            ? '(${_enumValues!.map((v) => "'${QVar.escape<T>(v)}'").join(', ')})'
+            : _options;
+    String sql = '${QField(name).toSQL<T>()} ${type.toSQL<T>()}$options';
     if (isPrimaryKey) {
       sql += ' PRIMARY KEY';
     }
@@ -261,11 +269,11 @@ abstract class MField extends SQL {
       if (reservedWords.contains(defaultValue.toUpperCase())) {
         sql += ' DEFAULT $defaultValue';
       } else {
-        sql += ' DEFAULT "$defaultValue"';
+        sql += " DEFAULT '${QVar.escape<T>(defaultValue)}'";
       }
     }
     if (comment != null) {
-      sql += ' COMMENT "$comment"';
+      sql += " COMMENT '${QVar.escape<T>(comment!)}'";
     }
     return sql;
   }
@@ -777,7 +785,7 @@ class MFieldEnum extends MField {
     super.validators = const [],
     required List<String> values,
   }) : super(type: FieldTypes.ENUM) {
-    _options = '(${values.map((v) => "'$v'").join(', ')})';
+    _enumValues = List.of(values);
   }
 }
 
@@ -799,7 +807,7 @@ class MFieldSet extends MField {
     super.validators = const [],
     required List<String> values,
   }) : super(type: FieldTypes.SET) {
-    _options = '(${values.map((v) => "'$v'").join(', ')})';
+    _enumValues = List.of(values);
   }
 }
 
@@ -1024,6 +1032,6 @@ class ForeignKey extends SQL {
   /// Returns a complete MySQL foreign key constraint statement.
   @override
   String toSQL<T extends SqlType>() {
-    return 'FOREIGN KEY (`$name`) REFERENCES `$refTable`(`$refColumn`) ON DELETE $onDelete ON UPDATE $onUpdate';
+    return 'FOREIGN KEY (${SQL.q<T>(name)}) REFERENCES ${SQL.q<T>(refTable)}(${SQL.q<T>(refColumn)}) ON DELETE $onDelete ON UPDATE $onUpdate';
   }
 }

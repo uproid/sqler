@@ -14,17 +14,17 @@ void main() {
     test('test field with special characters', () {
       var field1 = QField('test.field');
       //MySQL
-      expect(field1.toSQL<Mysql>(), "test.`field`");
+      expect(field1.toSQL<Mysql>(), "`test`.`field`");
       //Sqlite
-      expect(field1.toSQL<Sqlite>(), 'test."field"');
+      expect(field1.toSQL<Sqlite>(), '"test"."field"');
     });
 
     test('test field with special characters', () {
       var field1 = QField('test.field', as: 'test_field');
       //MySQL
-      expect(field1.toSQL<Mysql>(), "test.`field` AS `test_field`");
+      expect(field1.toSQL<Mysql>(), "`test`.`field` AS `test_field`");
       //Sqlite
-      expect(field1.toSQL<Sqlite>(), 'test."field" AS "test_field"');
+      expect(field1.toSQL<Sqlite>(), '"test"."field" AS "test_field"');
     });
 
     test('test all *', () {

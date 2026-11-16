@@ -850,7 +850,17 @@ class Sqler extends SQL {
     // Where
     if (_where.isNotEmpty) {
       sql += ' WHERE ';
-      sql += _where.map((e) => e.toSQL<T>()).join(' AND ');
+      sql += _where
+          .map((e) {
+            final part = e.toSQL<T>();
+            // `A AND B OR C` means `(A AND B) OR C`: an OrWhere that is combined
+            // with other top-level conditions must be parenthesised, otherwise
+            // its OR escapes every other filter (e.g. a tenant / owner check).
+            final needsParens =
+                _where.length > 1 && e is OrWhere && e._whereBodies.length > 1;
+            return needsParens ? '( $part )' : part;
+          })
+          .join(' AND ');
     }
 
     // Group by
@@ -877,13 +887,64 @@ class Sqler extends SQL {
     }
 
     if (_params.isNotEmpty) {
-      for (var key in _params.keys) {
-        var value = _params[key]!.toSQL<T>();
-        sql = sql.replaceAll('{$key}', value.toString());
-      }
+      sql = _expandParams<T>(sql);
     }
 
     return sql;
+  }
+
+  /// Replaces `{key}` placeholders with the bound parameter values.
+  ///
+  /// The SQL is scanned once, left to right, and text inside quoted string
+  /// literals / identifiers is skipped. Because of this
+  ///  * user data that merely *contains* `{key}` is never expanded, and
+  ///  * an already substituted value is never scanned again.
+  String _expandParams<T extends SqlType>(String sql) {
+    final out = StringBuffer();
+    final backslashEscapes = SqlType.isMysql<T>();
+    var i = 0;
+    while (i < sql.length) {
+      final c = sql[i];
+
+      if (c == "'" || c == '"' || c == '`') {
+        // copy the quoted section verbatim
+        final start = i++;
+        while (i < sql.length) {
+          if (backslashEscapes && c != '`' && sql[i] == r'\') {
+            i += 2;
+            continue;
+          }
+          if (sql[i] == c) {
+            if (i + 1 < sql.length && sql[i + 1] == c) {
+              i += 2; // doubled quote
+              continue;
+            }
+            break;
+          }
+          i++;
+        }
+        i = i < sql.length ? i + 1 : sql.length;
+        out.write(sql.substring(start, i));
+        continue;
+      }
+
+      if (c == '{') {
+        final end = sql.indexOf('}', i + 1);
+        if (end != -1) {
+          final key = sql.substring(i + 1, end);
+          final param = _params[key];
+          if (param != null) {
+            out.write(param.toSQL<T>());
+            i = end + 1;
+            continue;
+          }
+        }
+      }
+
+      out.write(c);
+      i++;
+    }
+    return out.toString();
   }
 }
 
@@ -1312,43 +1373,54 @@ class QVar extends SQL {
     if (value is SQL) {
       return '( ${value.toSQL<R>()} )';
     } else if (value is String) {
-      value = QVar.escape<R>(value);
-      return "'$value'";
+      return "'${QVar.escape<R>(value)}'";
     } else if (value is DateTime) {
       return QVar.dateTime(value).toSQL<R>();
     } else if (value is List) {
       return '(${value.map((e) => _to<R>(e)).join(', ')})';
     } else if (value == null) {
       return 'NULL';
+    } else if (value is num) {
+      if (!value.isFinite) {
+        throw ArgumentError.value(
+          value,
+          'value',
+          'NaN/Infinity is not a valid SQL value',
+        );
+      }
+      return value.toString();
+    } else if (value is bool) {
+      return value.toString();
     }
 
-    return value.toString();
+    // Never fall back to toString(): an arbitrary object (e.g. a Map decoded
+    // from user supplied JSON) would be written into the query unescaped.
+    throw ArgumentError.value(
+      value,
+      'value',
+      'Unsupported type ${value.runtimeType}. Use String, num, bool, DateTime, List, null or an SQL object.',
+    );
   }
 
-  /// Escapes special characters in strings to prevent SQL injection.
+  /// Escapes a string so it can be placed between single quotes.
   ///
-  /// Currently escapes double quotes and single quotes by adding backslashes.
-  ///
-  /// [input] The string to escape.
-  ///
-  /// Returns the escaped string safe for SQL queries.
-  ///
-  /// Note: This method is marked for improvement (@TODO).
+  /// * Single quotes are doubled (`'` -> `''`). This is understood by MySQL and
+  ///   SQLite alike and, unlike `\'`, it stays safe when MySQL runs with
+  ///   `NO_BACKSLASH_ESCAPES`.
+  /// * MySQL additionally treats `\` as an escape character, so a backslash
+  ///   is doubled too; otherwise a trailing `\` would swallow the closing
+  ///   quote.
   ///
   /// Example:
   /// ```dart
-  /// QVar.escape("Hello 'World'"); // "Hello \\'World\\'"
-  /// QVar.escape('Say "Hi"'); // "Say \\"Hi\\""
+  /// QVar.escape<Mysql>("O'Brien");  // O''Brien
+  /// QVar.escape<Mysql>(r'C:\temp'); // C:\\temp
   /// ```
-  // @TODO improve this method
   static String escape<R extends SqlType>(String input) {
-    if (SqlType.isSqlite<R>()) {
-      input = input.replaceAll("'", "''");
-    } else {
-      input = input.replaceAll('"', '\\"');
-      input = input.replaceAll("'", "\\'");
+    if (SqlType.isMysql<R>()) {
+      input = input.replaceAll(r'\', r'\\');
     }
-    return input;
+    return input.replaceAll("'", "''");
   }
 
   /// Creates a QVar containing a DateTime value formatted as ISO 8601 string.
@@ -1471,10 +1543,10 @@ class QVarLike extends QVar {
 
   /// Generates the SQL representation with proper escaping and wildcards.
   ///
-  /// Escapes the value and any existing % characters, then adds wildcards
-  /// as configured.
-  ///
-  /// Returns the quoted string with wildcards for LIKE operations.
+  /// The LIKE metacharacters `\`, `%` and `_` inside the value are escaped so
+  /// they match literally, then the pattern is escaped as a string literal for
+  /// the current dialect. SQLite has no default LIKE escape character, so an
+  /// `ESCAPE '\'` clause is appended there.
   ///
   /// Example:
   /// ```dart
@@ -1483,7 +1555,11 @@ class QVarLike extends QVar {
   /// ```
   @override
   String toSQL<T extends SqlType>() {
-    var res = QVar.escape(value).replaceAll('%', '\\%');
+    var res = value
+        .toString()
+        .replaceAll(r'\', r'\\')
+        .replaceAll('%', r'\%')
+        .replaceAll('_', r'\_');
 
     if (left) {
       res = '%$res';
@@ -1491,7 +1567,8 @@ class QVarLike extends QVar {
     if (right) {
       res = '$res%';
     }
-    return "'$res'";
+    final literal = "'${QVar.escape<T>(res)}'";
+    return SqlType.isSqlite<T>() ? "$literal ESCAPE '\\'" : literal;
   }
 }
 
@@ -1534,20 +1611,18 @@ class QField extends QVar {
   /// ```
   @override
   String toSQL<T extends SqlType>() {
-    var hasDot = value.contains('.');
-    var sql = distinct ? 'DISTINCT ' : '';
-    if (hasDot) {
-      var parts = value.split('.');
-      if (as.isNotEmpty) {
-        return '$sql${parts[0]}.${SQL.q<T>(parts[1])} AS ${SQL.q<T>(as)}';
-      }
-      return '$sql${parts[0]}.${SQL.q<T>(parts[1])}';
-    }
+    final sql = distinct ? 'DISTINCT ' : '';
+    // Every part of a dotted name (db.table.column) is quoted separately.
+    final name = value
+        .toString()
+        .split('.')
+        .map((part) => part == '*' ? '*' : SQL.q<T>(part))
+        .join('.');
 
     if (as.isNotEmpty) {
-      return '$sql${SQL.q<T>(value)} AS ${SQL.q<T>(as)}';
+      return '$sql$name AS ${SQL.q<T>(as)}';
     }
-    return '$sql${SQL.q<T>(value)}';
+    return '$sql$name';
   }
 
   /// Convenience method to create a field representing an 'id' column.
@@ -1608,7 +1683,7 @@ class QFromQuery extends QField {
   String toSQL<T extends SqlType>() {
     var sql = query.toSQL<T>();
     if (as.isNotEmpty) {
-      return '($sql) AS ${SqlType.isMysql<T>() ? '`$as`' : '"$as"'}';
+      return '($sql) AS ${SQL.q<T>(as)}';
     }
     return '($sql)';
   }
@@ -1793,8 +1868,13 @@ abstract class SQL {
 
   /// Quotes a database identifier (field or table name) based on the SQL dialect.
   /// Qutation marks differ between MySQL (backticks) and other databases (double quotes).
-  static String q<T extends SqlType>(String v) =>
-      SqlType.isMysql<T>() ? '`$v`' : '"$v"';
+  ///
+  /// The quote character inside [v] is doubled, so a hostile name can never
+  /// terminate the identifier early.
+  static String q<T extends SqlType>(String v) {
+    final quote = SqlType.isMysql<T>() ? '`' : '"';
+    return '$quote${v.replaceAll(quote, '$quote$quote')}$quote';
+  }
 
   /// Creates a COUNT aggregate function with optional alias.
   ///
