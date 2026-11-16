@@ -1667,7 +1667,7 @@ class QFromQuery extends QField {
   ///
   /// [query] The subquery to execute.
   /// [as] Optional alias for the subquery result.
-  QFromQuery(this.query, {String as = ''}) : super('', as: as);
+  QFromQuery(this.query, {super.as}) : super('');
 
   /// Generates the SQL for the subquery with optional alias.
   ///
